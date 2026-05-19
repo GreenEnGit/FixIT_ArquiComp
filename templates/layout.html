@@ -7,11 +7,38 @@
     <script src="/static/tailwindcss.js"></script>
     <style>
         body { background-color: #f8fafc; }
+        @media print {
+            .no-print { display: none !important; }
+            main, .ml-64 {
+                margin-left: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            body {
+                background-color: #ffffff !important;
+                color: #0f172a !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }
+            tr {
+                page-break-inside: avoid !important;
+            }
+            .print-grid-2 {
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 1.5rem !important;
+            }
+        }
     </style>
 </head>
 <body class="flex min-h-screen text-slate-900 antialiased">
     <!-- Sidebar -->
-    <div class="w-64 bg-slate-900 h-screen fixed left-0 top-0 text-white flex flex-col shadow-xl z-20">
+    <div class="w-64 bg-slate-900 h-screen fixed left-0 top-0 text-white flex flex-col shadow-xl z-20 no-print">
         <div class="p-6 border-b border-slate-800">
             <h1 class="text-xl font-bold flex items-center gap-2 text-blue-500">
                 🔧 FixIT
@@ -72,6 +99,9 @@
             <a href="/knowledge" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
                 📚 Base de Conocimientos
             </a>
+            <a href="/profile" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
+                🙍‍ Personalizar Perfil
+            </a>
 
             {% if user.role == 'ADMIN' %}
             <a href="/users" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
@@ -102,7 +132,7 @@
     <!-- Main Content -->
     <main class="flex-1 ml-64 overflow-y-auto p-8 relative min-h-screen">
         <!-- Barra de Búsqueda Global -->
-        <div class="mb-8 relative z-50 max-w-4xl mx-auto">
+        <div class="mb-8 relative z-50 max-w-4xl mx-auto no-print">
             <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -166,7 +196,7 @@
 
     <!-- Chatbot Flotante IA (Para Técnicos y Admin) -->
     {% if user.role in ['TECNICO', 'ADMIN'] %}
-    <div id="ai-chat-widget" class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div id="ai-chat-widget" class="fixed bottom-6 right-6 z-50 flex flex-col items-end no-print">
         <!-- Chat Window -->
         <div id="chat-window" class="hidden w-80 bg-white rounded-xl shadow-2xl border border-blue-100 overflow-hidden flex flex-col mb-4 transition-all" style="height: 400px;">
             <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 flex justify-between items-center text-white">

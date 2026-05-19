@@ -1,99 +1,394 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="max-w-6xl mx-auto">
-    <div class="flex justify-between items-center mb-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <!-- Header principal con efecto premium -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
         <div>
-            <h1 class="text-3xl font-bold text-slate-900">Reportes Financieros</h1>
-            <p class="text-slate-500 text-sm mt-1">Análisis de ingresos y costos por periodo de tiempo.</p>
+            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+                📈 Reportes Financieros
+            </h1>
+            <p class="text-slate-500 text-sm mt-1">Análisis detallado de ingresos, costos y utilidad neta real por periodo.</p>
+        </div>
+        <div class="flex items-center gap-3 no-print">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                {% if branch_id == 'TODAS' %}
+                    🌍 Consolidado Global
+                {% else %}
+                    📍 Sucursal: {{ branch_id }}
+                {% endif %}
+            </span>
+            <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-lg shadow-slate-900/10 hover:shadow-slate-900/20 transition-all duration-200 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                </svg>
+                Imprimir Reporte
+            </button>
         </div>
     </div>
 
-    <!-- Filtro de Fechas -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
-        <form action="/reports" method="GET" class="flex items-end gap-4">
-            <div class="flex-1">
-                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha Inicio</label>
-                <input type="date" name="start_date" value="{{ start_date }}" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <!-- Cabecera de impresión (visible únicamente al imprimir) -->
+    <div class="hidden print:block mb-8 border-b pb-6">
+        <div class="flex justify-between items-start">
+            <div>
+                <h2 class="text-2xl font-black text-slate-800">Reporte de Finanzas y Caja</h2>
+                <p class="text-xs text-slate-500 mt-1">Generado automáticamente por el sistema de taller FixIT</p>
             </div>
-            <div class="flex-1">
-                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha Fin</label>
-                <input type="date" name="end_date" value="{{ end_date }}" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="text-right text-xs text-slate-500">
+                <p><strong>Fecha de Emisión:</strong> <span id="print-generation-date"></span></p>
             </div>
-            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow hover:bg-blue-700 transition-colors h-[38px] flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                Generar Reporte
-            </button>
+        </div>
+        <div class="grid grid-cols-3 gap-4 mt-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div>
+                <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Sucursal Filtrada</span>
+                <span class="text-sm font-bold text-slate-800 font-sans">
+                    {% if branch_id == 'TODAS' %}🌍 Consolidado Global (Todas){% else %}📍 Sucursal: {{ branch_id }}{% endif %}
+                </span>
+            </div>
+            <div>
+                <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Fecha de Inicio</span>
+                <span class="text-sm font-bold text-slate-800 font-sans">{{ start_date }}</span>
+            </div>
+            <div>
+                <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Fecha de Fin</span>
+                <span class="text-sm font-bold text-slate-800 font-sans">{{ end_date }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de Filtros (Glassmorphism minimalista) -->
+    <div class="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 p-6 mb-8 transition-all hover:shadow-md no-print">
+        <form action="/reports" method="GET" class="grid grid-cols-1 md:grid-cols-4 items-end gap-6">
+            <!-- Selector de Sucursal (Solo ADMIN) -->
+            {% if user.role == 'ADMIN' %}
+            <div class="col-span-1">
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Filtrar por Sucursal</label>
+                <select name="branch_id" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium text-slate-700">
+                    <option value="TODAS" {% if branch_id == 'TODAS' %}selected{% endif %}>🌍 Todas las Sucursales</option>
+                    {% for b in all_branches %}
+                        <option value="{{ b.id }}" {% if branch_id == b.id %}selected{% endif %}>📍 {{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            
+            <div class="{% if user.role == 'ADMIN' %}col-span-1{% else %}col-span-2{% endif %}">
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha de Inicio</label>
+                <input type="date" name="start_date" value="{{ start_date }}" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium text-slate-700">
+            </div>
+            
+            <div class="{% if user.role == 'ADMIN' %}col-span-1{% else %}col-span-2{% endif %}">
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha de Fin</label>
+                <input type="date" name="end_date" value="{{ end_date }}" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium text-slate-700">
+            </div>
+            
+            <div class="col-span-1">
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-600/30 transition-all duration-200 flex items-center justify-center gap-2 h-[45px]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    Actualizar Reporte
+                </button>
+            </div>
         </form>
     </div>
 
-    <!-- KPIs Resumen -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500">
-            <h3 class="text-slate-500 text-sm font-semibold mb-1 uppercase tracking-wider">Ingresos Totales (Cobrado)</h3>
+    <!-- Grid de KPIs Premium -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 print-grid-2">
+        <!-- Tarjeta 1: Ingresos Totales -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500 hover:shadow-md transition-all">
+            <div class="flex justify-between items-start mb-2">
+                <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider">Ingresos Totales</h3>
+                <span class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-bold">Cobrado</span>
+            </div>
             <p class="text-3xl font-black text-slate-900">${{ "{:,.2f}".format(total_revenue) }}</p>
-            <p class="text-xs text-slate-400 mt-2">Mano de obra + Refacciones vendidas</p>
-        </div>
-        
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-rose-500">
-            <h3 class="text-slate-500 text-sm font-semibold mb-1 uppercase tracking-wider">Costo de Refacciones</h3>
-            <p class="text-3xl font-black text-rose-600">${{ "{:,.2f}".format(total_parts_cost) }}</p>
-            <p class="text-xs text-slate-400 mt-2">Costo base de piezas utilizadas</p>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-1 text-[11px] text-slate-500">
+                <div class="flex justify-between">
+                    <span>🎟️ Tickets de Reparación:</span>
+                    <span class="font-semibold text-slate-800">${{ "{:,.2f}".format(ticket_revenue) }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>🛒 Ventas Directas POS:</span>
+                    <span class="font-semibold text-slate-800">${{ "{:,.2f}".format(direct_sales_rev) }}</span>
+                </div>
+            </div>
         </div>
 
-        <div class="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-xl shadow-md border border-slate-700">
-            <h3 class="text-slate-300 text-sm font-semibold mb-1 uppercase tracking-wider">Ganancia Neta</h3>
+        <!-- Tarjeta 2: Costo de Adquisición -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-rose-500 hover:shadow-md transition-all">
+            <div class="flex justify-between items-start mb-2">
+                <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider">Costos de Refacciones</h3>
+                <span class="text-xs bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md font-bold">Costo Base</span>
+            </div>
+            <p class="text-3xl font-black text-rose-600">${{ "{:,.2f}".format(ticket_parts_cost + direct_sales_cost) }}</p>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-1 text-[11px] text-slate-500">
+                <div class="flex justify-between">
+                    <span>🔧 Usadas en Reparaciones:</span>
+                    <span class="font-semibold text-slate-800">${{ "{:,.2f}".format(ticket_parts_cost) }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>📦 Vendidas en POS:</span>
+                    <span class="font-semibold text-slate-800">${{ "{:,.2f}".format(direct_sales_cost) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta 3: Mermas -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-amber-500 hover:shadow-md transition-all">
+            <div class="flex justify-between items-start mb-2">
+                <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider">Pérdida por Mermas</h3>
+                <span class="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md font-bold">Pérdida Directa</span>
+            </div>
+            <p class="text-3xl font-black text-amber-600">${{ "{:,.2f}".format(mermas_cost) }}</p>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-1 text-[11px] text-slate-500">
+                <div class="flex justify-between">
+                    <span>⚠️ Artículos Dañados / Perdidos:</span>
+                    <span class="font-semibold text-slate-800">{{ mermas|length }} registros</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>📉 Impacto en Ganancias:</span>
+                    <span class="font-semibold text-rose-500">-${{ "{:,.2f}".format(mermas_cost) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta 4: Ganancia Neta Real -->
+        <div class="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700 hover:shadow-xl hover:scale-[1.01] transition-all duration-200 text-white">
+            <div class="flex justify-between items-start mb-2">
+                <h3 class="text-slate-300 text-xs font-bold uppercase tracking-wider">Ganancia Neta Real</h3>
+                <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md font-bold">Utilidad Real</span>
+            </div>
             <p class="text-3xl font-black text-emerald-400">${{ "{:,.2f}".format(net_profit) }}</p>
-            <p class="text-xs text-slate-400 mt-2">Utilidad libre en este lapso</p>
+            <div class="mt-4 pt-3 border-t border-slate-700/50 flex flex-col gap-1 text-[11px] text-slate-400">
+                <div class="flex justify-between">
+                    <span>🔧 Utilidad de Tickets:</span>
+                    <span class="font-semibold text-emerald-300">${{ "{:,.2f}".format(ticket_profit) }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>🛒 Utilidad Ventas POS:</span>
+                    <span class="font-semibold text-emerald-300">${{ "{:,.2f}".format(direct_sales_profit) }}</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Detalles de Tickets Cobrados -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-            <h2 class="font-bold text-slate-800">Desglose de Tickets Entregados y Pagados</h2>
-            <span class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">{{ tickets|length }} tickets en este periodo</span>
+    <!-- Pestañas Interactivas (Tabs) -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-12">
+        <div class="border-b border-slate-200 bg-slate-50/50 px-6 py-2 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 no-print">
+            <!-- Navegación de Pestañas -->
+            <div class="flex border-b sm:border-none border-slate-200" id="reportsTabs">
+                <button onclick="switchTab('tab-tickets')" id="btn-tab-tickets" class="py-4 px-4 font-bold text-sm border-b-2 border-blue-600 text-blue-600 focus:outline-none transition-all duration-150 flex items-center gap-2">
+                    🎟️ Tickets de Servicio
+                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold ml-1">{{ tickets|length }}</span>
+                </button>
+                <button onclick="switchTab('tab-pos')" id="btn-tab-pos" class="py-4 px-4 font-bold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 focus:outline-none transition-all duration-150 flex items-center gap-2">
+                    🛒 Ventas Directas (POS)
+                    <span class="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold ml-1">{{ direct_sales|length }}</span>
+                </button>
+                <button onclick="switchTab('tab-mermas')" id="btn-tab-mermas" class="py-4 px-4 font-bold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 focus:outline-none transition-all duration-150 flex items-center gap-2">
+                    ⚠️ Mermas y Pérdidas
+                    <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold ml-1">{{ mermas|length }}</span>
+                </button>
+            </div>
+            
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                Visualización detallada por tipo de flujo
+            </span>
         </div>
-        {% if tickets %}
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left">
-                <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-                    <tr>
-                        <th class="px-6 py-3">ID Ticket</th>
-                        <th class="px-6 py-3">Fecha</th>
-                        <th class="px-6 py-3">Cliente / Dispositivo</th>
-                        <th class="px-6 py-3 text-right">M. Obra Cobrada</th>
-                        <th class="px-6 py-3 text-right">Refacciones Cobradas</th>
-                        <th class="px-6 py-3 text-right">Costo Interno Piezas</th>
-                        <th class="px-6 py-3 text-right">Utilidad Ticket</th>
-                        <th class="px-6 py-3 text-center">Acción</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                    {% for t in tickets %}
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-6 py-4 font-mono font-bold text-blue-600">{{ t.id }}</td>
-                        <td class="px-6 py-4 text-slate-600">{{ t.date }}</td>
-                        <td class="px-6 py-4">
-                            <p class="font-semibold text-slate-900">{{ t.customer_name }}</p>
-                            <p class="text-xs text-slate-500">{{ t.device_str }}</p>
-                        </td>
-                        <td class="px-6 py-4 text-right font-medium text-slate-700">${{ "{:,.2f}".format(t.labor_cost) }}</td>
-                        <td class="px-6 py-4 text-right font-medium text-slate-700">${{ "{:,.2f}".format(t.parts_revenue) }}</td>
-                        <td class="px-6 py-4 text-right text-rose-500">${{ "{:,.2f}".format(t.parts_cost) }}</td>
-                        <td class="px-6 py-4 text-right font-bold text-emerald-600">${{ "{:,.2f}".format(t.ticket_profit) }}</td>
-                        <td class="px-6 py-4 text-center">
-                            <a href="/ticket/{{ t.id }}" class="text-blue-500 hover:text-blue-700 hover:underline font-medium text-xs">Ver Detalles</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+        <!-- Contenedores de Contenido de Pestañas -->
+        <div class="p-0">
+            <!-- Pestaña 1: Tickets de Servicio -->
+            <div id="tab-tickets" class="tab-content block">
+                {% if tickets %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50/50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-6 py-4 font-bold">ID Ticket</th>
+                                <th class="px-6 py-4 font-bold">Fecha</th>
+                                <th class="px-6 py-4 font-bold">Cliente / Dispositivo</th>
+                                {% if branch_id == 'TODAS' %}<th class="px-6 py-4 font-bold">Sucursal</th>{% endif %}
+                                <th class="px-6 py-4 text-right font-bold">M. Obra Cobrada</th>
+                                <th class="px-6 py-4 text-right font-bold">Refacciones Cobradas</th>
+                                <th class="px-6 py-4 text-right font-bold">Costo Interno Piezas</th>
+                                <th class="px-6 py-4 text-right font-bold">Utilidad Ticket</th>
+                                <th class="px-6 py-4 text-center font-bold no-print">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for t in tickets %}
+                            <tr class="hover:bg-slate-50/80 transition-colors">
+                                <td class="px-6 py-4 font-mono font-bold text-blue-600">{{ t.id }}</td>
+                                <td class="px-6 py-4 text-slate-600 whitespace-nowrap">{{ t.date }}</td>
+                                <td class="px-6 py-4">
+                                    <p class="font-bold text-slate-900">{{ t.customer_name }}</p>
+                                    <p class="text-xs text-slate-500 font-medium">{{ t.device_str }}</p>
+                                </td>
+                                {% if branch_id == 'TODAS' %}
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-xs font-bold rounded bg-slate-100 text-slate-600 border border-slate-200">{{ t.branch_id }}</span>
+                                </td>
+                                {% endif %}
+                                <td class="px-6 py-4 text-right font-medium text-slate-700">${{ "{:,.2f}".format(t.labor_cost) }}</td>
+                                <td class="px-6 py-4 text-right font-medium text-slate-700">${{ "{:,.2f}".format(t.parts_revenue) }}</td>
+                                <td class="px-6 py-4 text-right text-rose-500 font-medium">${{ "{:,.2f}".format(t.parts_cost) }}</td>
+                                <td class="px-6 py-4 text-right font-black text-emerald-600">${{ "{:,.2f}".format(t.ticket_profit) }}</td>
+                                <td class="px-6 py-4 text-center no-print">
+                                    <a href="/ticket/{{ t.id }}" class="inline-flex items-center px-2.5 py-1 text-[11px] font-bold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                                        Detalle
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-16 text-center">
+                    <p class="text-4xl">🎟️</p>
+                    <p class="text-slate-500 font-semibold mt-4">No hay tickets cobrados en este periodo de tiempo.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Pestaña 2: Ventas Directas (POS) -->
+            <div id="tab-pos" class="tab-content hidden">
+                {% if direct_sales %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50/50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-6 py-4 font-bold">Fecha</th>
+                                <th class="px-6 py-4 font-bold">Vendedor</th>
+                                <th class="px-6 py-4 font-bold">Componente</th>
+                                {% if branch_id == 'TODAS' %}<th class="px-6 py-4 font-bold">Sucursal</th>{% endif %}
+                                <th class="px-6 py-4 font-bold">Detalles de Venta</th>
+                                <th class="px-6 py-4 text-right font-bold">Cantidad</th>
+                                <th class="px-6 py-4 text-right font-bold">Ingreso Cobrado</th>
+                                <th class="px-6 py-4 text-right font-bold">Costo Base</th>
+                                <th class="px-6 py-4 text-right font-bold">Ganancia Neta</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for ds in direct_sales %}
+                            <tr class="hover:bg-slate-50/80 transition-colors">
+                                <td class="px-6 py-4 font-mono text-xs text-slate-500 whitespace-nowrap">{{ ds.date }}</td>
+                                <td class="px-6 py-4 font-bold text-slate-700">@{{ ds.username }}</td>
+                                <td class="px-6 py-4">
+                                    <div class="font-bold text-slate-900">{{ ds.item_name or 'Componente Eliminado' }}</div>
+                                    <div class="font-mono text-[10px] text-slate-400">SKU: {{ ds.item_id }}</div>
+                                </td>
+                                {% if branch_id == 'TODAS' %}
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-xs font-bold rounded bg-slate-100 text-slate-600 border border-slate-200">{{ ds.branch_id }}</span>
+                                </td>
+                                {% endif %}
+                                <td class="px-6 py-4 text-slate-600 italic text-xs">{{ ds.details }}</td>
+                                <td class="px-6 py-4 text-right font-semibold text-slate-950">{{ ds.qty }}</td>
+                                <td class="px-6 py-4 text-right font-medium text-slate-800">${{ "{:,.2f}".format(ds.monetary_impact) }}</td>
+                                <td class="px-6 py-4 text-right text-rose-500 font-medium">${{ "{:,.2f}".format(ds.cost) }}</td>
+                                <td class="px-6 py-4 text-right font-black text-emerald-600">${{ "{:,.2f}".format(ds.profit) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-16 text-center">
+                    <p class="text-4xl">🛒</p>
+                    <p class="text-slate-500 font-semibold mt-4">No hay ventas directas en el mostrador para este periodo.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Pestaña 3: Mermas y Pérdidas -->
+            <div id="tab-mermas" class="tab-content hidden">
+                {% if mermas %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50/50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-6 py-4 font-bold">Fecha y Hora</th>
+                                <th class="px-6 py-4 font-bold">Usuario</th>
+                                <th class="px-6 py-4 font-bold">Componente Dañado</th>
+                                {% if branch_id == 'TODAS' %}<th class="px-6 py-4 font-bold">Sucursal</th>{% endif %}
+                                <th class="px-6 py-4 font-bold">Razón del Ajuste / Justificación</th>
+                                <th class="px-6 py-4 text-right font-bold">Pérdida Financiera</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for m in mermas %}
+                            <tr class="hover:bg-slate-50/80 transition-colors">
+                                <td class="px-6 py-4 font-mono text-xs text-slate-500 whitespace-nowrap">{{ m.date }}</td>
+                                <td class="px-6 py-4 font-bold text-slate-700">@{{ m.username }}</td>
+                                <td class="px-6 py-4">
+                                    <div class="font-bold text-slate-900">{{ m.item_name or 'Componente Ajustado' }}</div>
+                                    <div class="font-mono text-[10px] text-slate-400">SKU: {{ m.item_id }}</div>
+                                </td>
+                                {% if branch_id == 'TODAS' %}
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-xs font-bold rounded bg-slate-100 text-slate-600 border border-slate-200">{{ m.branch_id }}</span>
+                                </td>
+                                {% endif %}
+                                <td class="px-6 py-4 text-slate-600 italic">{{ m.details }}</td>
+                                <td class="px-6 py-4 text-right font-black text-rose-600">-${{ "{:,.2f}".format(m.loss) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-16 text-center">
+                    <p class="text-4xl">☀️</p>
+                    <p class="text-slate-500 font-semibold mt-4">¡Excelente! No se registraron mermas ni pérdidas en este periodo.</p>
+                </div>
+                {% endif %}
+            </div>
         </div>
-        {% else %}
-        <div class="p-8 text-center text-slate-500">
-            <p>No hay tickets cobrados en este periodo de tiempo.</p>
-        </div>
-        {% endif %}
     </div>
 </div>
+
+<script>
+    function switchTab(tabId) {
+        // Ocultar todos los contenidos de pestañas
+        const contents = document.querySelectorAll('.tab-content');
+        contents.forEach(c => {
+            c.classList.remove('block');
+            c.classList.add('hidden');
+        });
+        
+        // Mostrar la pestaña seleccionada
+        const target = document.getElementById(tabId);
+        if (target) {
+            target.classList.remove('hidden');
+            target.classList.add('block');
+        }
+        
+        // Quitar estilos activos de todos los botones de pestañas
+        const buttons = document.querySelectorAll('#reportsTabs button');
+        buttons.forEach(b => {
+            b.classList.remove('border-blue-600', 'text-blue-600');
+            b.classList.add('border-transparent', 'text-slate-500');
+        });
+        
+        // Agregar estilo activo al botón presionado
+        const activeBtn = document.getElementById('btn-' + tabId);
+        if (activeBtn) {
+            activeBtn.classList.remove('border-transparent', 'text-slate-500');
+            activeBtn.classList.add('border-blue-600', 'text-blue-600');
+        }
+    }
+</script>
+
+<!-- Script para setear fecha de emisión del reporte al imprimir -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const dateSpan = document.getElementById('print-generation-date');
+        if (dateSpan) {
+            const now = new Date();
+            dateSpan.textContent = now.toLocaleString('es-MX', {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            });
+        }
+    });
+</script>
 {% endblock %}

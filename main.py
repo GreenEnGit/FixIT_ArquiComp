@@ -56,23 +56,72 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user), db
     c.execute("SELECT * FROM activities WHERE branch_id = ? ORDER BY id DESC LIMIT 5", (branch,))
     branch_activities = c.fetchall()
     
+    # 1. Ingresos y costos de refacciones y mano de obra de tickets cobrados
     c.execute("""
-        SELECT SUM(tp.price * tp.qty) as total_parts_revenue,
-               SUM(tp.cost * tp.qty) as total_parts_cost
-        FROM ticket_parts tp
-        JOIN tickets t ON tp.ticket_id = t.id
+        SELECT t.*,
+               COALESCE(SUM(tp.price * tp.qty), 0) as parts_revenue,
+               COALESCE(SUM(tp.cost * tp.qty), 0) as parts_cost
+        FROM tickets t
+        LEFT JOIN ticket_parts tp ON t.id = tp.ticket_id
         WHERE t.branch_id = ? AND t.status = 'ENTREGADO Y PAGADO'
+        GROUP BY t.id
     """, (branch,))
-    parts_totals = c.fetchone()
+    paid_tickets = c.fetchall()
     
-    parts_rev = Decimal(str(parts_totals["total_parts_revenue"] or 0))
-    parts_cst = Decimal(str(parts_totals["total_parts_cost"] or 0))
+    ticket_labor = Decimal('0.00')
+    ticket_parts_rev = Decimal('0.00')
+    ticket_parts_cst = Decimal('0.00')
+    for t in paid_tickets:
+        ticket_labor += Decimal(str(t["labor_cost"] or 0))
+        ticket_parts_rev += Decimal(str(t["parts_revenue"] or 0))
+        ticket_parts_cst += Decimal(str(t["parts_cost"] or 0))
+        
+    ticket_revenue = ticket_labor + ticket_parts_rev
     
-    total_labor = sum([Decimal(str(t["labor_cost"])) for t in branch_tickets if t["status"] == "ENTREGADO Y PAGADO"])
+    # 2. Ventas directas (POS) y mermas registradas en audit_logs de esta sucursal
+    c.execute("""
+        SELECT a.*, i.cost as current_cost
+        FROM audit_logs a
+        LEFT JOIN inventory i ON a.item_id = i.id
+        WHERE a.branch_id = ?
+    """, (branch,))
+    branch_audit = c.fetchall()
     
-    total_revenue = total_labor + parts_rev
-    total_parts_cost = parts_cst
-    net_profit = total_revenue - total_parts_cost
+    direct_sales_rev = Decimal('0.00')
+    direct_sales_cost = Decimal('0.00')
+    mermas_cost = Decimal('0.00')
+    
+    for row in branch_audit:
+        log = dict(row)
+        action = log["action"]
+        item_id = log["item_id"]
+        monetary_impact = Decimal(str(log["monetary_impact"] or 0))
+        
+        if action == "VENTA_DIRECTA":
+            qty = 1
+            details = log["details"] or ""
+            if "Ticket #" in details:
+                try:
+                    parts = details.split('#')
+                    if len(parts) > 1:
+                        sale_id_str = ''.join(filter(str.isdigit, parts[1]))
+                        if sale_id_str:
+                            sale_id = int(sale_id_str)
+                            c.execute("SELECT qty FROM sale_items WHERE sale_id = ? AND item_id = ?", (sale_id, item_id))
+                            qty_row = c.fetchone()
+                            if qty_row:
+                                qty = qty_row["qty"]
+                except:
+                    pass
+            item_cost = Decimal(str(log["current_cost"] or 0))
+            direct_sales_rev += monetary_impact
+            direct_sales_cost += item_cost * qty
+        elif action == "MERMA":
+            mermas_cost += abs(monetary_impact)
+            
+    total_revenue = ticket_revenue + direct_sales_rev
+    total_cost = ticket_parts_cst + direct_sales_cost + mermas_cost
+    net_profit = total_revenue - total_cost
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request, "user": user, 
@@ -242,10 +291,15 @@ async def delete_loaner(loaner_id: str, user: dict = Depends(get_current_user), 
     return RedirectResponse(url="/appointments", status_code=303)
 
 @app.get("/reports", response_class=HTMLResponse)
-async def financial_reports(request: Request, start_date: str = None, end_date: str = None, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
-    # require_admin might be needed but for now we follow the user's role logic. (Admins and Tecnicos can see branch specific reports)
-    branch = user["branch_id"]
+async def financial_reports(request: Request, start_date: str = None, end_date: str = None, branch_id: str = None, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
+    user_branch = user["branch_id"]
+    user_role = user["role"]
     
+    if user_role == "ADMIN":
+        selected_branch = branch_id if branch_id else "TODAS"
+    else:
+        selected_branch = user_branch
+        
     if not start_date:
         start_date = datetime.now().strftime("%Y-%m-01") # Primer día del mes
     if not end_date:
@@ -253,8 +307,12 @@ async def financial_reports(request: Request, start_date: str = None, end_date: 
 
     c = db.cursor()
     
-    # Obtener tickets pagados en el rango de fechas con sus totales pre-calculados (Solución N+1)
-    c.execute("""
+    # Obtener todas las sucursales para el filtro en el frontend
+    c.execute("SELECT id, name FROM branches")
+    all_branches = [dict(row) for row in c.fetchall()]
+    
+    # 1. Obtener tickets pagados en el rango de fechas con sus totales pre-calculados
+    ticket_query = """
         SELECT t.*, c.name as customer_name, d.type || ' ' || d.model as device_str,
                COALESCE(SUM(tp.price * tp.qty), 0) as parts_revenue,
                COALESCE(SUM(tp.cost * tp.qty), 0) as parts_cost
@@ -262,28 +320,34 @@ async def financial_reports(request: Request, start_date: str = None, end_date: 
         JOIN customers c ON t.customer_id = c.id
         JOIN customer_devices d ON t.device_id = d.id
         LEFT JOIN ticket_parts tp ON t.id = tp.ticket_id
-        WHERE t.branch_id = ? AND t.status = 'ENTREGADO Y PAGADO'
+        WHERE t.status = 'ENTREGADO Y PAGADO'
         AND t.date >= ? AND t.date <= ?
-        GROUP BY t.id
-        ORDER BY t.date DESC
-    """, (branch, start_date, end_date + " 23:59:59"))
+    """
+    ticket_params = [start_date, end_date + " 23:59:59"]
     
+    if selected_branch != "TODAS":
+        ticket_query += " AND t.branch_id = ?"
+        ticket_params.append(selected_branch)
+        
+    ticket_query += " GROUP BY t.id ORDER BY t.date DESC"
+    c.execute(ticket_query, tuple(ticket_params))
     raw_tickets = c.fetchall()
     
-    total_revenue = Decimal('0.00')
-    total_parts_cost = Decimal('0.00')
+    ticket_labor = Decimal('0.00')
+    ticket_parts_rev = Decimal('0.00')
+    ticket_parts_cost = Decimal('0.00')
     
     report_tickets = []
-    
     for t in raw_tickets:
-        labor = Decimal(str(t["labor_cost"]))
-        t_parts_revenue = Decimal(str(t["parts_revenue"]))
-        t_parts_cost = Decimal(str(t["parts_cost"]))
+        labor = Decimal(str(t["labor_cost"] or 0))
+        t_parts_revenue = Decimal(str(t["parts_revenue"] or 0))
+        t_parts_cost = Decimal(str(t["parts_cost"] or 0))
         
         t_revenue = labor + t_parts_revenue
         
-        total_revenue += t_revenue
-        total_parts_cost += t_parts_cost
+        ticket_labor += labor
+        ticket_parts_rev += t_parts_revenue
+        ticket_parts_cost += t_parts_cost
         
         t_dict = dict(t)
         t_dict["parts_revenue"] = float(t_parts_revenue)
@@ -291,29 +355,105 @@ async def financial_reports(request: Request, start_date: str = None, end_date: 
         t_dict["ticket_profit"] = float(t_revenue - t_parts_cost)
         report_tickets.append(t_dict)
         
-    # Obtener Ventas Directas y Mermas de Auditoría
-    c.execute("""
-        SELECT 
-            COALESCE(SUM(CASE WHEN action = 'VENTA_DIRECTA' THEN monetary_impact ELSE 0 END), 0) as direct_sales,
-            COALESCE(SUM(CASE WHEN action = 'MERMA' THEN monetary_impact ELSE 0 END), 0) as mermas
-        FROM audit_logs
-        WHERE branch_id = ? AND date >= ? AND date <= ?
-    """, (branch, start_date, end_date + " 23:59:59"))
-    audit_data = c.fetchone()
+    ticket_revenue = ticket_labor + ticket_parts_rev
+    ticket_profit = ticket_revenue - ticket_parts_cost
     
-    direct_sales = Decimal(str(audit_data["direct_sales"]))
-    mermas = Decimal(str(audit_data["mermas"])) # This is negative already
+    # 2. Obtener Ventas Directas y Mermas de Auditoría
+    audit_query = """
+        SELECT a.*, i.name as item_name, i.brand as item_brand, i.cost as current_cost
+        FROM audit_logs a
+        LEFT JOIN inventory i ON a.item_id = i.id
+        WHERE a.date >= ? AND a.date <= ?
+    """
+    audit_params = [start_date, end_date + " 23:59:59"]
     
-    net_profit = total_revenue - total_parts_cost + direct_sales + mermas
+    if selected_branch != "TODAS":
+        audit_query += " AND a.branch_id = ?"
+        audit_params.append(selected_branch)
+        
+    audit_query += " ORDER BY a.date DESC"
+    c.execute(audit_query, tuple(audit_params))
+    raw_audit = c.fetchall()
+    
+    direct_sales_list = []
+    mermas_list = []
+    
+    direct_sales_rev = Decimal('0.00')
+    direct_sales_cost = Decimal('0.00')
+    mermas_cost = Decimal('0.00')
+    
+    for row in raw_audit:
+        log = dict(row)
+        action = log["action"]
+        item_id = log["item_id"]
+        monetary_impact = Decimal(str(log["monetary_impact"] or 0))
+        
+        if action == "VENTA_DIRECTA":
+            qty = 1
+            details = log["details"] or ""
+            if "Ticket #" in details:
+                try:
+                    parts = details.split('#')
+                    if len(parts) > 1:
+                        sale_id_str = ''.join(filter(str.isdigit, parts[1]))
+                        if sale_id_str:
+                            sale_id = int(sale_id_str)
+                            c.execute("SELECT qty FROM sale_items WHERE sale_id = ? AND item_id = ?", (sale_id, item_id))
+                            qty_row = c.fetchone()
+                            if qty_row:
+                                qty = qty_row["qty"]
+                except:
+                    pass
+            
+            item_cost = Decimal(str(log["current_cost"] or 0))
+            cost_of_this_sale = item_cost * qty
+            profit_of_this_sale = monetary_impact - cost_of_this_sale
+            
+            direct_sales_rev += monetary_impact
+            direct_sales_cost += cost_of_this_sale
+            
+            log["qty"] = qty
+            log["cost"] = float(cost_of_this_sale)
+            log["profit"] = float(profit_of_this_sale)
+            log["price"] = float(monetary_impact / qty) if qty > 0 else 0.0
+            
+            direct_sales_list.append(log)
+            
+        elif action == "MERMA":
+            loss = abs(monetary_impact)
+            mermas_cost += loss
+            log["loss"] = float(loss)
+            mermas_list.append(log)
+            
+    total_revenue = ticket_revenue + direct_sales_rev
+    total_cost = ticket_parts_cost + direct_sales_cost + mermas_cost
+    net_profit = total_revenue - total_cost
 
     return templates.TemplateResponse("reports.html", {
         "request": request, "user": user,
         "start_date": start_date, "end_date": end_date,
+        "branch_id": selected_branch,
+        "all_branches": all_branches,
         "tickets": report_tickets,
+        "direct_sales": direct_sales_list,
+        "mermas": mermas_list,
+        
+        # Detalle de KPIs
+        "ticket_labor": float(ticket_labor),
+        "ticket_parts_rev": float(ticket_parts_rev),
+        "ticket_parts_cost": float(ticket_parts_cost),
+        "ticket_revenue": float(ticket_revenue),
+        "ticket_profit": float(ticket_profit),
+        
+        "direct_sales_rev": float(direct_sales_rev),
+        "direct_sales_cost": float(direct_sales_cost),
+        "direct_sales_profit": float(direct_sales_rev - direct_sales_cost),
+        
+        "mermas_cost": float(mermas_cost),
+        
+        # Totales Consolidados
         "total_revenue": float(total_revenue),
-        "total_parts_cost": float(total_parts_cost),
-        "direct_sales": float(direct_sales),
-        "mermas": float(mermas),
+        "total_cost": float(total_cost),
         "net_profit": float(net_profit)
     })
 

@@ -13,7 +13,7 @@
         </div>
         <div class="flex items-center gap-3">
             <a href="/ticket" class="text-sm text-slate-500 hover:text-slate-800 font-medium bg-white px-3 py-1.5 rounded-lg shadow-sm border border-slate-200 transition-colors hover:bg-slate-50">&larr; Volver al Listado</a>
-            {% if ticket.status == 'ENTREGADO Y PAGADO' %}
+            {% if ticket.status in ['ENTREGADO Y PAGADO', 'LISTO PARA ENTREGA'] %}
             <a href="/ticket/{{ ticket.id }}/invoice" target="_blank" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium bg-indigo-50 px-3 py-1.5 rounded-lg shadow-sm border border-indigo-200 transition-colors hover:bg-indigo-100 flex items-center gap-2">
                 🖨️ Generar Recibo de Pago
             </a>
@@ -76,24 +76,52 @@
         </div>
     </div>
     
-    {% if ticket_images %}
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-        <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-            Evidencia Fotográfica de Ingreso
-        </h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {% for img in ticket_images %}
-            <a href="{{ img.file_path }}" target="_blank" class="block rounded-lg overflow-hidden border border-slate-200 hover:shadow-md transition-shadow group relative aspect-square bg-slate-50">
-                <img src="{{ img.file_path }}" alt="Evidencia" class="w-full h-full object-cover">
-                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                    <svg class="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
-                </div>
-            </a>
+<div class="flex flex-col lg:flex-row gap-6">
+    <!-- Evidencias (imágenes / PDFs) -->
+    <div class="flex-1">
+        {% if ticket_images %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
+                Evidencia Fotográfica / PDF
+            </h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {% for img in ticket_images %}
+                    {% if img.file_path.lower().endswith('.pdf') %}
+                        <embed src="{{ img.file_path }}" type="application/pdf" class="w-full h-96 rounded-lg border border-slate-200" />
+                    {% else %}
+                        <a href="{{ img.file_path }}" target="_blank" class="block rounded-lg overflow-hidden border border-slate-200 hover:shadow-md transition-shadow group relative aspect-square bg-slate-50">
+                            <img src="{{ img.file_path }}" alt="Evidencia" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                <svg class="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
+                            </div>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    <!-- Comentarios lateral -->
+    <aside class="w-full lg:w-80 bg-slate-50 rounded-xl p-4 border border-slate-200 shadow-sm overflow-y-auto max-h-96">
+        <h3 class="text-sm font-semibold text-slate-700 mb-2">Comentarios</h3>
+        <div class="space-y-2">
+            {% for act in activities %}
+                {% if act.action.startswith('Comentario') %}
+                    <p class="text-xs text-slate-600 bg-white rounded p-2 shadow-sm">{{ act.action.split(':',1)[1].strip() }}</p>
+                {% endif %}
             {% endfor %}
         </div>
-    </div>
-    {% endif %}
+        <form action="/ticket/{{ ticket.id }}/comment" method="POST" class="flex gap-3 mt-4">
+            <input type="text" name="comment" placeholder="Añadir una nota o comentario interno..."
+                class="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white" required>
+            <button type="submit" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-900 transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                Comentar
+            </button>
+        </form>
+    </aside>
+</div>
 
     <div class="bg-slate-50 rounded-xl shadow-sm border border-slate-200 p-6">
         <!-- Asignación de Refacciones -->
@@ -244,16 +272,6 @@
         <p class="text-sm text-slate-500 text-center italic py-4">No hay registro de actividades para este ticket.</p>
         {% endif %}
         
-        <!-- Formulario de Comentarios -->
-        <div class="mt-8 pt-6 border-t border-slate-100">
-            <form action="/ticket/{{ ticket.id }}/comment" method="POST" class="flex gap-3">
-                <input type="text" name="comment" placeholder="Añadir una nota o comentario interno..." class="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-colors" required>
-                <button type="submit" class="bg-slate-800 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-900 transition-colors flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
-                    Comentar
-                </button>
-            </form>
-        </div>
     </div>
 
 </div>

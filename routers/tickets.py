@@ -116,7 +116,11 @@ async def change_ticket_status(ticket_id: str, background_tasks: BackgroundTasks
     ticket = c.fetchone()
     if not ticket:
         raise HTTPException(status_code=403, detail="No tienes permiso para modificar este ticket.")
-        
+    
+    # Prevent any status changes if the ticket is already delivered and paid
+    if ticket["status"] == "ENTREGADO Y PAGADO":
+        raise HTTPException(status_code=400, detail="El ticket ya está entregado y pagado; no se pueden cambiar sus estados.")
+    
     if status == "ENTREGADO Y PAGADO" and ticket["status"] != "ENTREGADO Y PAGADO":
         raise HTTPException(status_code=400, detail="Debes utilizar el módulo de 'Registrar Pago (Caja)' para liquidar el ticket y subir la evidencia. No se puede marcar manualmente desde aquí.")
     
@@ -130,7 +134,7 @@ async def change_ticket_status(ticket_id: str, background_tasks: BackgroundTasks
         info = c.fetchone()
         if info:
             background_tasks.add_task(async_notif, info["phone"], info["device_str"])
-                
+        
     return RedirectResponse(url=f"/ticket/{ticket_id}", status_code=303)
 
 @router.post("/{ticket_id}/pay", response_class=RedirectResponse)

@@ -53,11 +53,15 @@ async def view_customer(request: Request, customer_id: str, user: dict = Depends
     customer_tickets = c.fetchall()
     
     c.execute("""
-        SELECT SUM(t.labor_cost) as total_labor,
-               SUM(tp.price * tp.qty) as total_parts
-        FROM tickets t
-        LEFT JOIN ticket_parts tp ON t.id = tp.ticket_id
-        WHERE t.customer_id = ? AND t.status = 'ENTREGADO Y PAGADO'
+        SELECT SUM(labor_cost) as total_labor,
+               SUM(parts_total) as total_parts
+        FROM (
+            SELECT t.id, t.labor_cost, COALESCE(SUM(tp.price * tp.qty), 0) as parts_total
+            FROM tickets t
+            LEFT JOIN ticket_parts tp ON t.id = tp.ticket_id
+            WHERE t.customer_id = ? AND t.status = 'ENTREGADO Y PAGADO'
+            GROUP BY t.id
+        ) sub
     """, (customer_id,))
     ltv_data = c.fetchone()
     ltv = float(ltv_data["total_labor"] or 0) + float(ltv_data["total_parts"] or 0)

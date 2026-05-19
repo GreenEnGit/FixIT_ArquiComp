@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends, Form
+from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 import sqlite3
 import json
@@ -7,11 +7,13 @@ from dependencies import templates, get_db_conn, get_current_user, require_admin
 router = APIRouter(prefix="/inventory")
 
 @router.get("/sales", response_class=HTMLResponse)
-async def inventory_sales(request: Request, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
+async def inventory_sales(request: Request, branch_id: str = None, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
     c = db.cursor()
-    c.execute("SELECT * FROM inventory WHERE branch_id = ?", (user["branch_id"],))
+    # Admin can view any branch; regular users see only their own branch
+    target_branch = user["branch_id"] if branch_id is None or user["role"] != "ADMIN" else branch_id
+    c.execute("SELECT i.*, b.name as branch_name FROM inventory i JOIN branches b ON i.branch_id = b.id WHERE i.branch_id = ?", (target_branch,))
     branch_inventory = c.fetchall()
-    return templates.TemplateResponse("inventory_sales.html", {"request": request, "user": user, "items": branch_inventory})
+    return templates.TemplateResponse("inventory_sales.html", {"request": request, "user": user, "items": branch_inventory, "selected_branch": target_branch})
 
 @router.post("/new", response_class=RedirectResponse)
 async def create_inventory(request: Request, name: str = Form(...), brand: str = Form(...), category: str = Form(...), cost: float = Form(...), price: float = Form(...), stock: int = Form(...), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -63,6 +65,10 @@ async def deduct_stock(item_id: str, action: str = Form(...), details: str = For
     if row and row["stock"] > 0:
         # Deduct
         c.execute("UPDATE inventory SET stock = stock - 1 WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
+        
+        # Validate price non‑negative before impact calculation
+        if row["price"] < 0:
+            raise HTTPException(status_code=400, detail="El precio del artículo no puede ser negativo.")
         
         # Calculate impact
         impact = 0.00
@@ -132,3 +138,18 @@ async def order_stock(item_id: str, user: dict = Depends(get_current_user), db: 
               ("VEND-01", item_id, 10, "COMPLETADA", "Justo ahora"))
     db.commit()
     return RedirectResponse(url=f"/inventory/component/{item_id}", status_code=303)
+
+@router.delete("/item/{item_id}", response_class=RedirectResponse)
+async def delete_inventory_item(item_id: str, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
+    if user["role"] != "ADMIN":
+        raise HTTPException(status_code=403, detail="Solo los administradores pueden eliminar productos del inventario.")
+    c = db.cursor()
+    c.execute("SELECT stock FROM inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
+    row = c.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Producto no encontrado.")
+    if row["stock"] != 0:
+        raise HTTPException(status_code=400, detail="Solo se pueden eliminar productos con stock 0.")
+    c.execute("DELETE FROM inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
+    db.commit()
+    return RedirectResponse(url="/inventory/sales", status_code=303)

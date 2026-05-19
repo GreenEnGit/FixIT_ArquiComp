@@ -327,12 +327,16 @@ def _seed_data(conn):
               ("REP-001022", 1250.00, "Tarjeta", "2026-05-08"))
 
     # Knowledge Base
-    kb_data = [
-        ("Pantalla Azul de la Muerte (BSOD)", "pantalla azul, bsod, reinicia", "1. Verificar códigos de error en visor de eventos. 2. Correr diagnóstico de Memoria RAM."),
-        ("Sobrecalentamiento y Apagado", "apaga, calienta, ventilador", "1. Revisar estado físico de ventiladores. 2. Cambiar pasta térmica."),
-        ("No enciende (Sin energía)", "no enciende, muerta, quemado", "1. Probar con otro cargador/fuente. 2. Drenaje de energía."),
-    ]
-    c.executemany("INSERT INTO knowledge_base (title, keywords, content) VALUES (?, ?, ?)", kb_data)
+    try:
+        from seed_kb import glossary
+        c.executemany("INSERT INTO knowledge_base (title, keywords, content, category) VALUES (?, ?, ?, ?)", glossary)
+    except ImportError:
+        kb_data = [
+            ("Pantalla Azul de la Muerte (BSOD)", "pantalla azul, bsod, reinicia", "1. Verificar códigos de error en visor de eventos. 2. Correr diagnóstico de Memoria RAM.", "General"),
+            ("Sobrecalentamiento y Apagado", "apaga, calienta, ventilador", "1. Revisar estado físico de ventiladores. 2. Cambiar pasta térmica.", "General"),
+            ("No enciende (Sin energía)", "no enciende, muerta, quemado", "1. Probar con otro cargador/fuente. 2. Drenaje de energía.", "General"),
+        ]
+        c.executemany("INSERT INTO knowledge_base (title, keywords, content, category) VALUES (?, ?, ?, ?)", kb_data)
 
     conn.commit()
 
