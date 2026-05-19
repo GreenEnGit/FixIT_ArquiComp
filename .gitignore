@@ -1,0 +1,41 @@
+# Entornos virtuales
+venv/
+env/
+ENV/
+.venv/
+
+# Archivos compilados de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Configuración y Secretos
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Bases de datos locales
+*.sqlite3
+*.db
+taller_prototipo.db
+
+# Logs y Cachés
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDEs y Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Documentos generados
+*.pdf
+pdf_clean.txt
+pdf_text.txt

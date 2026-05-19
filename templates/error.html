@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error {{ status_code }} - FixIT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 flex items-center justify-center min-h-screen p-4">
+    <div class="text-center p-8 bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full">
+        <div class="text-6xl mb-6">{% if status_code == 404 %}🔍{% elif status_code == 403 %}🔒{% else %}⚠️{% endif %}</div>
+        <h1 class="text-3xl font-black text-slate-800 mb-2">Error {{ status_code }}</h1>
+        <p class="text-slate-500 mb-8">{{ detail }}</p>
+        <button onclick="window.history.back()" class="w-full bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow hover:bg-blue-700 transition-colors">
+            Volver Atrás
+        </button>
+        <div class="mt-4">
+            <a href="/" class="text-sm text-blue-500 hover:underline">Ir al Dashboard</a>
+        </div>
+    </div>
+</body>
+</html>

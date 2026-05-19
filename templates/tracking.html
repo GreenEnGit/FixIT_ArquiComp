@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seguimiento de Reparación - FixIT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased font-sans flex flex-col min-h-screen">
+    <nav class="bg-slate-900 text-white p-4 shadow-lg">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold text-blue-400">🔧 FixIT Portal</h1>
+            <a href="/login" class="text-xs text-slate-400 hover:text-white">Acceso Empleados</a>
+        </div>
+    </nav>
+
+    <main class="flex-1 max-w-4xl mx-auto w-full p-6 mt-8">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-white text-center">
+                <h2 class="text-3xl font-black mb-2">Orden #{{ ticket.id }}</h2>
+                <p class="text-blue-100 opacity-90">{{ ticket.device_str }}</p>
+            </div>
+            
+            <div class="p-8">
+                <div class="flex items-center justify-between mb-8 pb-8 border-b border-slate-100">
+                    <div>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
+                        <p class="font-bold text-lg text-slate-800">{{ ticket.customer_name }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Fecha de Ingreso</p>
+                        <p class="font-medium text-slate-800">{{ ticket.date }}</p>
+                    </div>
+                </div>
+
+                <div class="mb-8">
+                    <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Estado Actual</h3>
+                    <div class="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-xl border border-slate-200 shadow-inner">
+                        <span class="text-2xl font-black text-blue-600 uppercase tracking-widest">{{ ticket.status }}</span>
+                        {% if ticket.status == 'LISTO PARA ENTREGA' %}
+                        <p class="text-emerald-600 font-bold mt-3 bg-emerald-50 px-4 py-2 rounded-lg">¡Tu equipo está listo para ser recogido!</p>
+                        {% elif ticket.status == 'EN DIAGNÓSTICO' %}
+                        <p class="text-slate-500 text-sm mt-3">Nuestros técnicos están revisando tu equipo.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if warranty %}
+                <div class="mb-8 bg-emerald-50 border border-emerald-200 p-6 rounded-xl text-center">
+                    <h3 class="text-sm font-bold text-emerald-800 uppercase tracking-wider mb-2">🛡️ Garantía Activa</h3>
+                    <p class="text-emerald-700 font-medium">Válida del <span class="font-bold">{{ warranty.start_date }}</span> al <span class="font-bold">{{ warranty.end_date }}</span></p>
+                    <p class="text-xs text-emerald-600 mt-2">Guarda este ticket. Cubre defectos de mano de obra y piezas instaladas.</p>
+                </div>
+                {% endif %}
+
+                <div class="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800"><strong>Síntoma reportado:</strong> "{{ ticket.symptom }}"</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-slate-900 text-center p-6 mt-auto">
+        <p class="text-slate-500 text-sm">© 2026 FixIT - Software de Gestión para Talleres</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket de Venta #{{ log.id }}</title>
+    <!-- Tailwind CSS (Solo para utilidades base, el layout debe ser flexible para impresoras térmicas) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos específicos para impresión en rollo térmico (58mm - 80mm) */
+        @media print {
+            @page {
+                margin: 0;
+                size: 80mm 200mm; /* Tamaño típico de ticket de 80mm */
+            }
+            body {
+                margin: 0;
+                padding: 10px;
+                width: 75mm;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+        
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f8fafc;
+            color: #000;
+        }
+
+        .ticket-container {
+            width: 300px; /* Simula 80mm en pantalla */
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 15px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .dotted-line {
+            border-top: 1px dashed #000;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Controles de pantalla (no se imprimen) -->
+    <div class="no-print max-w-md mx-auto mt-4 text-center mb-6">
+        <button onclick="window.print()" class="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 font-sans font-bold">🖨️ Imprimir Ticket</button>
+        <a href="/inventory/sales" class="ml-4 text-slate-500 hover:text-slate-700 font-sans underline">← Volver a Ventas</a>
+    </div>
+
+    <!-- Ticket Real -->
+    <div class="ticket-container">
+        <!-- Encabezado -->
+        <div class="text-center mb-4">
+            <h1 class="text-xl font-bold uppercase">{{ log.branch_name }}</h1>
+            <p class="text-xs">{{ log.branch_address }}</p>
+            <p class="text-xs mt-1">RFC: XAXX010101000</p> <!-- Placeholder -->
+        </div>
+
+        <div class="dotted-line"></div>
+
+        <!-- Info de Venta -->
+        <div class="text-xs mb-2">
+            <p><strong>FECHA:</strong> {{ log.date }}</p>
+            <p><strong>TICKET:</strong> #V-{{ "%06d" | format(log.id) }}</p>
+            <p><strong>CAJERO:</strong> @{{ log.username }}</p>
+        </div>
+
+        <div class="dotted-line"></div>
+
+        <!-- Detalles del Artículo -->
+        <div class="text-sm mb-4">
+            <div class="flex justify-between font-bold mb-1">
+                <span>CANT. DESCRIPCIÓN</span>
+                <span>IMPORTE</span>
+            </div>
+            <div class="flex justify-between items-start">
+                <span class="pr-2">1x {{ log.item_name }} ({{ log.brand }})</span>
+                <span>${{ "{:,.2f}".format(log.monetary_impact) }}</span>
+            </div>
+        </div>
+
+        <div class="dotted-line"></div>
+
+        <!-- Totales -->
+        <div class="text-right text-sm">
+            <p>SUBTOTAL: <span class="font-bold">${{ "{:,.2f}".format(log.monetary_impact) }}</span></p>
+            <p>IVA (16% INC.): <span class="font-bold">${{ "{:,.2f}".format(log.monetary_impact - (log.monetary_impact / 1.16)) }}</span></p>
+            <p class="text-lg font-black mt-2">TOTAL: ${{ "{:,.2f}".format(log.monetary_impact) }}</p>
+        </div>
+
+        <div class="dotted-line"></div>
+
+        <!-- Pie de página -->
+        <div class="text-center text-xs mt-4">
+            <p class="font-bold mb-1">¡GRACIAS POR SU COMPRA!</p>
+            <p>Este comprobante es indispensable para cualquier aclaración o garantía.</p>
+            <p class="mt-2 text-[10px] text-gray-500">FixIT SaaS POS</p>
+        </div>
+    </div>
+
+    <!-- Auto-imprimir al cargar -->
+    <script>
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 500);
+        };
+    </script>
+</body>
+</html>

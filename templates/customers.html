@@ -1,0 +1,81 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-900 mb-1">Directorio de Clientes (CRM)</h1>
+            <p class="text-sm text-slate-500">Gestión de todos los clientes registrados en FixIT.</p>
+        </div>
+        <button onclick="document.getElementById('newCustomerModal').classList.remove('hidden')" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-blue-700 transition-colors flex items-center gap-2">
+            ➕ Nuevo Cliente
+        </button>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
+                    <th class="p-4 font-bold">ID Cliente</th>
+                    <th class="p-4 font-bold">Nombre</th>
+                    <th class="p-4 font-bold">Contacto</th>
+                    <th class="p-4 font-bold">Dirección</th>
+                    <th class="p-4 font-bold text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-sm">
+                {% for c in customers %}
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-4 font-mono text-slate-400 font-bold">{{ c.id }}</td>
+                    <td class="p-4 font-bold text-slate-900">{{ c.name }}</td>
+                    <td class="p-4 text-slate-600">
+                        <div class="flex flex-col">
+                            <span>📞 {{ c.phone }}</span>
+                            {% if c.email %}<span class="text-xs text-slate-400">📧 {{ c.email }}</span>{% endif %}
+                        </div>
+                    </td>
+                    <td class="p-4 text-slate-500 text-xs">{{ c.address }}</td>
+                    <td class="p-4 text-center">
+                        <a href="/customer/{{ c.id }}" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-3 py-1.5 rounded text-xs transition-colors border border-blue-100 shadow-sm">Ver Perfil</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="p-8 text-center text-slate-500">No hay clientes registrados aún.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal Nuevo Cliente -->
+    <div id="newCustomerModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
+                <h2 class="font-bold text-blue-900">Registrar Nuevo Cliente</h2>
+                <button onclick="document.getElementById('newCustomerModal').classList.add('hidden')" class="text-blue-400 hover:text-blue-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form action="/customers/new" method="POST" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Nombre Completo</label>
+                    <input type="text" name="name" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Teléfono (10 dígitos)</label>
+                    <input type="tel" name="phone" pattern="[0-9\-\+\s]{10,15}" placeholder="Ej: 5512345678" title="Debe contener al menos 10 dígitos numéricos" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Correo Electrónico (Opcional)</label>
+                    <input type="email" name="email" placeholder="cliente@correo.com" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Dirección Física (Opcional)</label>
+                    <input type="text" name="address" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition-colors">
+                    Guardar Cliente
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

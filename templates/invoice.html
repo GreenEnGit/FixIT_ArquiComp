@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo FixIT - {{ ticket.id }}</title>
+    <!-- Estilo optimizado para impresoras térmicas de 80mm -->
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            width: 80mm;
+            margin: 0 auto;
+            padding: 10px;
+            color: #000;
+            background: #fff;
+            font-size: 12px;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .bold { font-weight: bold; }
+        .divider { border-top: 1px dashed #000; margin: 10px 0; }
+        .header { margin-bottom: 15px; }
+        .header h1 { margin: 0; font-size: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 4px 0; }
+        .total-row { font-size: 14px; font-weight: bold; }
+        .mb-2 { margin-bottom: 5px; }
+        .qr-placeholder { border: 1px solid #000; padding: 15px; margin: 15px auto; width: 80px; height: 80px; text-align: center; line-height: 80px;}
+    </style>
+</head>
+<body>
+    <div class="text-center header">
+        <h1>FixIT Taller</h1>
+        <p class="mb-2">Sucursal {{ ticket.branch }}</p>
+        <p>Rfc: FIX000101XYZ</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <p><span class="bold">TICKET:</span> {{ ticket.id }}</p>
+    <p><span class="bold">FECHA:</span> {{ date }}</p>
+    <p><span class="bold">CLIENTE:</span> {{ ticket.customer_name }}</p>
+    <p><span class="bold">TEL:</span> {{ ticket.customer_phone }}</p>
+    <p><span class="bold">EQUIPO:</span> {{ ticket.device_str }}</p>
+    <p><span class="bold">S/N:</span> {{ ticket.serial_number }}</p>
+    <p><span class="bold">ESTADO FÍSICO:</span> {{ ticket.condition }}</p>
+
+    <div class="divider"></div>
+    <p class="bold text-center">CONCEPTO DE CARGOS</p>
+    <div class="divider"></div>
+
+    <table>
+        <tr>
+            <td colspan="2">Diagnóstico / Mano Obra</td>
+        </tr>
+        <tr>
+            <td class="text-right">1 x ${{ "{:,.2f}".format(ticket.labor_cost) }}</td>
+            <td class="text-right">${{ "{:,.2f}".format(ticket.labor_cost) }}</td>
+        </tr>
+        {% for part in ticket.parts_used %}
+        <tr>
+            <td colspan="2">{{ part.name }}</td>
+        </tr>
+        <tr>
+            <td class="text-right">{{ part.qty }} x ${{ "{:,.2f}".format(part.price) }}</td>
+            <td class="text-right">${{ "{:,.2f}".format(part.price * part.qty) }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <div class="divider"></div>
+    
+    <table>
+        <tr>
+            <td>SUBTOTAL:</td>
+            <td class="text-right">${{ "{:,.2f}".format(ticket.labor_cost + subtotal_parts) }}</td>
+        </tr>
+        <tr>
+            <td>IVA (16%):</td>
+            <td class="text-right">${{ "{:,.2f}".format(tax) }}</td>
+        </tr>
+        <tr class="total-row">
+            <td>TOTAL:</td>
+            <td class="text-right">${{ "{:,.2f}".format(total) }}</td>
+        </tr>
+    </table>
+
+    <div class="divider"></div>
+    <p class="text-center bold">ESTADO: {{ ticket.status }}</p>
+    
+    <div class="qr-placeholder">QR AQUI</div>
+    
+    <p class="text-center">Sigue tu reparación en:<br>www.fixit.com/tracking/{{ ticket.id }}</p>
+    <p class="text-center" style="font-size: 10px; margin-top: 20px;">ESTE TICKET NO ES UN COMPROBANTE FISCAL.<br>Gracias por tu preferencia.</p>
+
+    <script>
+        // Simulador de impresión automática para el prototipo
+        window.onload = function() {
+            setTimeout(() => {
+                window.print();
+            }, 500);
+        }
+    </script>
+</body>
+</html>

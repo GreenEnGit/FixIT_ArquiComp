@@ -1,0 +1,157 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <div class="mb-8 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Base de Conocimientos (SOPs)</h1>
+            <p class="text-sm text-slate-500 mt-1">Manuales de reparación y diagnósticos estandarizados para los técnicos de todas las sucursales.</p>
+        </div>
+        {% if user.role == 'ADMIN' %}
+        <button onclick="document.getElementById('newSopModal').classList.remove('hidden')" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 font-medium">+ Nuevo Procedimiento</button>
+        {% endif %}
+    </div>
+
+    <!-- Barra de Búsqueda -->
+    <div class="mb-8 relative">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        </div>
+        <input type="text" id="sopSearch" onkeyup="filterSOPs()" placeholder="Buscar por síntoma o palabra clave..." class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+    </div>
+
+    <!-- Filtros de Categoría -->
+    <div class="mb-6 flex flex-wrap gap-2" id="categoryTabs">
+        <button onclick="filterByCategory('Todas')" class="px-4 py-2 rounded-lg font-bold text-sm bg-blue-600 text-white shadow-sm category-btn" id="btn-Todas">Todas</button>
+        {% for cat in categories %}
+        <button onclick="filterByCategory('{{ cat }}')" class="px-4 py-2 rounded-lg font-bold text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 category-btn" id="btn-{{ cat | replace(' ', '-') }}">{{ cat }}</button>
+        {% endfor %}
+    </div>
+
+    <div class="space-y-6" id="sopList">
+        {% for sop in sops %}
+        <div class="sop-card bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow" data-category="{{ sop.category }}">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center cursor-pointer" onclick="toggleSOP('sop-{{ sop.id }}')">
+                <div class="flex items-center gap-3">
+                    <span class="px-2.5 py-1 bg-slate-200 text-slate-700 text-[10px] font-bold rounded-full uppercase">{{ sop.category }}</span>
+                    <h2 class="text-lg font-bold text-slate-800 sop-title">{{ sop.title }}</h2>
+                </div>
+                <svg class="w-5 h-5 text-slate-400 transform transition-transform" id="icon-sop-{{ sop.id }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+            <!-- Contenido Oculto por defecto -->
+            <div id="sop-{{ sop.id }}" class="hidden">
+                <div class="p-6 bg-white">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Palabras Clave</h3>
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        {% for kw in sop.keywords %}
+                        <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium sop-keyword">{{ kw }}</span>
+                        {% endfor %}
+                    </div>
+                    
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Procedimiento Operativo</h3>
+                    <div class="text-slate-700 text-sm whitespace-pre-wrap leading-relaxed">{{ sop.content }}</div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-slate-500 text-center p-8">No hay artículos en la base de conocimientos.</p>
+        {% endfor %}
+        
+        <div id="noSopMsg" class="hidden text-center p-8 text-slate-500 bg-white border border-slate-200 rounded-xl">
+            No se encontraron procedimientos para tu búsqueda.
+        </div>
+    </div>
+
+    <!-- Modal Nuevo SOP -->
+    <div id="newSopModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div class="bg-indigo-50 px-6 py-4 border-b border-indigo-100 flex justify-between items-center">
+                <h2 class="font-bold text-indigo-900">Crear Nuevo Procedimiento</h2>
+                <button onclick="document.getElementById('newSopModal').classList.add('hidden')" class="text-indigo-400 hover:text-indigo-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form action="/knowledge/new" method="POST" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Título del Procedimiento</label>
+                    <input type="text" name="title" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Categoría</label>
+                    <input type="text" name="category" required placeholder="ej: Procesador, RAM, General..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Palabras Clave (separadas por coma)</label>
+                    <input type="text" name="keywords" required placeholder="ej: pantalla, display, roto" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Contenido (Pasos a seguir)</label>
+                    <textarea name="content" required rows="5" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+                <button type="submit" class="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg transition-colors">
+                    Publicar Procedimiento
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleSOP(id) {
+    const content = document.getElementById(id);
+    const icon = document.getElementById('icon-' + id);
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        icon.classList.add('rotate-180');
+    } else {
+        content.classList.add('hidden');
+        icon.classList.remove('rotate-180');
+    }
+}
+
+let currentCategory = 'Todas';
+
+function filterByCategory(cat) {
+    currentCategory = cat;
+    
+    // Update button styles
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-white', 'text-slate-600');
+    });
+    
+    let activeBtnId = cat === 'Todas' ? 'btn-Todas' : 'btn-' + cat.replace(/ /g, '-');
+    let activeBtn = document.getElementById(activeBtnId);
+    if(activeBtn) {
+        activeBtn.classList.remove('bg-white', 'text-slate-600');
+        activeBtn.classList.add('bg-blue-600', 'text-white');
+    }
+    
+    filterSOPs();
+}
+
+function filterSOPs() {
+    const input = document.getElementById("sopSearch").value.toLowerCase();
+    const cards = document.querySelectorAll(".sop-card");
+    let visibleCount = 0;
+    
+    cards.forEach(card => {
+        const title = card.querySelector(".sop-title").textContent.toLowerCase();
+        let keywordsText = "";
+        card.querySelectorAll(".sop-keyword").forEach(kw => keywordsText += kw.textContent.toLowerCase() + " ");
+        const cardCat = card.getAttribute("data-category");
+        
+        let matchesSearch = title.includes(input) || keywordsText.includes(input);
+        let matchesCategory = (currentCategory === 'Todas' || cardCat === currentCategory);
+        
+        if (matchesSearch && matchesCategory) {
+            card.style.display = "";
+            visibleCount++;
+        } else {
+            card.style.display = "none";
+        }
+    });
+    
+    document.getElementById("noSopMsg").classList.toggle("hidden", visibleCount > 0 || (input === "" && currentCategory === 'Todas'));
+}
+</script>
+{% endblock %}

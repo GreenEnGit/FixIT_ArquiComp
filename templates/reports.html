@@ -1,0 +1,99 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-900">Reportes Financieros</h1>
+            <p class="text-slate-500 text-sm mt-1">Análisis de ingresos y costos por periodo de tiempo.</p>
+        </div>
+    </div>
+
+    <!-- Filtro de Fechas -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+        <form action="/reports" method="GET" class="flex items-end gap-4">
+            <div class="flex-1">
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha Inicio</label>
+                <input type="date" name="start_date" value="{{ start_date }}" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex-1">
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha Fin</label>
+                <input type="date" name="end_date" value="{{ end_date }}" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow hover:bg-blue-700 transition-colors h-[38px] flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                Generar Reporte
+            </button>
+        </form>
+    </div>
+
+    <!-- KPIs Resumen -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500">
+            <h3 class="text-slate-500 text-sm font-semibold mb-1 uppercase tracking-wider">Ingresos Totales (Cobrado)</h3>
+            <p class="text-3xl font-black text-slate-900">${{ "{:,.2f}".format(total_revenue) }}</p>
+            <p class="text-xs text-slate-400 mt-2">Mano de obra + Refacciones vendidas</p>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-rose-500">
+            <h3 class="text-slate-500 text-sm font-semibold mb-1 uppercase tracking-wider">Costo de Refacciones</h3>
+            <p class="text-3xl font-black text-rose-600">${{ "{:,.2f}".format(total_parts_cost) }}</p>
+            <p class="text-xs text-slate-400 mt-2">Costo base de piezas utilizadas</p>
+        </div>
+
+        <div class="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-xl shadow-md border border-slate-700">
+            <h3 class="text-slate-300 text-sm font-semibold mb-1 uppercase tracking-wider">Ganancia Neta</h3>
+            <p class="text-3xl font-black text-emerald-400">${{ "{:,.2f}".format(net_profit) }}</p>
+            <p class="text-xs text-slate-400 mt-2">Utilidad libre en este lapso</p>
+        </div>
+    </div>
+
+    <!-- Detalles de Tickets Cobrados -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+            <h2 class="font-bold text-slate-800">Desglose de Tickets Entregados y Pagados</h2>
+            <span class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">{{ tickets|length }} tickets en este periodo</span>
+        </div>
+        {% if tickets %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-6 py-3">ID Ticket</th>
+                        <th class="px-6 py-3">Fecha</th>
+                        <th class="px-6 py-3">Cliente / Dispositivo</th>
+                        <th class="px-6 py-3 text-right">M. Obra Cobrada</th>
+                        <th class="px-6 py-3 text-right">Refacciones Cobradas</th>
+                        <th class="px-6 py-3 text-right">Costo Interno Piezas</th>
+                        <th class="px-6 py-3 text-right">Utilidad Ticket</th>
+                        <th class="px-6 py-3 text-center">Acción</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for t in tickets %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4 font-mono font-bold text-blue-600">{{ t.id }}</td>
+                        <td class="px-6 py-4 text-slate-600">{{ t.date }}</td>
+                        <td class="px-6 py-4">
+                            <p class="font-semibold text-slate-900">{{ t.customer_name }}</p>
+                            <p class="text-xs text-slate-500">{{ t.device_str }}</p>
+                        </td>
+                        <td class="px-6 py-4 text-right font-medium text-slate-700">${{ "{:,.2f}".format(t.labor_cost) }}</td>
+                        <td class="px-6 py-4 text-right font-medium text-slate-700">${{ "{:,.2f}".format(t.parts_revenue) }}</td>
+                        <td class="px-6 py-4 text-right text-rose-500">${{ "{:,.2f}".format(t.parts_cost) }}</td>
+                        <td class="px-6 py-4 text-right font-bold text-emerald-600">${{ "{:,.2f}".format(t.ticket_profit) }}</td>
+                        <td class="px-6 py-4 text-center">
+                            <a href="/ticket/{{ t.id }}" class="text-blue-500 hover:text-blue-700 hover:underline font-medium text-xs">Ver Detalles</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-slate-500">
+            <p>No hay tickets cobrados en este periodo de tiempo.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etiqueta de Inventario - {{ item.id }}</title>
+    <style>
+        /* CSS puro para simular un código de barras en pantalla (Impresora de Etiquetas 50x25mm aprox) */
+        @page { margin: 0; }
+        body {
+            font-family: Arial, sans-serif;
+            background: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .label-container {
+            background: white;
+            width: 200px;
+            height: 100px;
+            padding: 10px;
+            box-sizing: border-box;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .label-title {
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .label-brand {
+            font-size: 8px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        /* Simulación Gráfica del Código de Barras usando bordes */
+        .barcode {
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            margin-top: 5px;
+            margin-bottom: 2px;
+        }
+        .bar { background: black; height: 100%; margin: 0 1px; }
+        .b-w1 { width: 1px; } .b-w2 { width: 2px; } .b-w3 { width: 3px; } .b-w4 { width: 4px; }
+        
+        .label-sku {
+            font-family: monospace;
+            font-size: 12px;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            text-align: center;
+        }
+        
+        @media print {
+            body { background: white; align-items: flex-start; justify-content: flex-start; }
+            .label-container { box-shadow: none; border-radius: 0; margin: 0; }
+            .controls { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="window.print()" style="padding: 10px 20px; font-size: 14px; cursor: pointer; background: #2563eb; color: white; border: none; border-radius: 5px;">🖨️ Imprimir Etiqueta Física</button>
+        <button onclick="window.close()" style="padding: 10px 20px; font-size: 14px; cursor: pointer; margin-left: 10px; background: #64748b; color: white; border: none; border-radius: 5px;">Cerrar</button>
+    </div>
+
+    {% if item %}
+    <div class="label-container">
+        <div>
+            <div class="label-title">{{ item.name }}</div>
+            <div class="label-brand">{{ item.brand }} - {{ item.branch }}</div>
+        </div>
+        
+        <div class="barcode">
+            <!-- Simulación aleatoria visual del código de barras -->
+            <div class="bar b-w2"></div><div class="bar b-w1"></div><div class="bar b-w3"></div><div class="bar b-w1"></div>
+            <div class="bar b-w2"></div><div class="bar b-w4"></div><div class="bar b-w1"></div><div class="bar b-w1"></div>
+            <div class="bar b-w2"></div><div class="bar b-w3"></div><div class="bar b-w1"></div><div class="bar b-w2"></div>
+            <div class="bar b-w1"></div><div class="bar b-w2"></div><div class="bar b-w1"></div><div class="bar b-w3"></div>
+            <div class="bar b-w1"></div><div class="bar b-w4"></div><div class="bar b-w2"></div><div class="bar b-w1"></div>
+        </div>
+        
+        <div class="label-sku">{{ item.id }}</div>
+    </div>
+    {% else %}
+    <div>Item no encontrado.</div>
+    {% endif %}
+</body>
+</html>
