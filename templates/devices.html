@@ -7,35 +7,50 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
-                    <th class="p-4 font-bold">ID Equipo</th>
-                    <th class="p-4 font-bold">Cliente</th>
-                    <th class="p-4 font-bold">Detalle Físico</th>
-                    <th class="p-4 font-bold">Estado en Resguardo</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 text-sm">
-                {% for d in devices %}
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="p-4 font-mono font-bold text-indigo-600">{{ d.id }}</td>
-                    <td class="p-4 font-medium text-slate-800">
-                        <a href="/customer/{{ d.customer_id }}" class="hover:text-blue-600 hover:underline">{{ d.customer_name }}</a>
-                    </td>
-                    <td class="p-4 text-slate-600">
-                        <span class="font-bold text-slate-900">{{ d.type }}</span> {{ d.model }}
-                        <br><span class="text-xs text-slate-400">Estado de Ingreso: {{ d.status }}</span>
-                    </td>
-                    <td class="p-4">
-                        <span class="bg-slate-100 text-slate-600 font-bold px-3 py-1 rounded text-xs border border-slate-200">En Taller</span>
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="4" class="p-8 text-center text-slate-500">No hay equipos registrados en resguardo para esta sucursal.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
+                        <th class="p-4 font-bold">ID Equipo</th>
+                        <th class="p-4 font-bold">Cliente</th>
+                        <th class="p-4 font-bold">Detalle Físico</th>
+                        <th class="p-4 font-bold">Estado en Resguardo</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-sm">
+                    {% for d in devices %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-4 font-mono font-bold text-indigo-600">{{ d.id }}</td>
+                        <td class="p-4 font-medium text-slate-800">
+                            <a href="/customer/{{ d.customer_id }}" class="hover:text-blue-600 hover:underline">{{ d.customer_name }}</a>
+                        </td>
+                        <td class="p-4 text-slate-600">
+                            <span class="font-bold text-slate-900">{{ d.type }}</span> {{ d.model }}
+                            <br><span class="text-xs text-slate-400">Estado de Ingreso: {{ d.status }}</span>
+                        </td>
+                        <td class="p-4">
+                            {% if d.ticket_status == 'ENTREGADO Y PAGADO' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                                Entregado / Fuera del Taller
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                                En Taller
+                            </span>
+                            {% endif %}
+                            {% if d.ticket_id %}
+                            <div class="mt-1 text-xs">
+                                <a href="/ticket/{{ d.ticket_id }}" class="text-indigo-600 hover:underline font-mono">Ticket: {{ d.ticket_id }}</a>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="p-8 text-center text-slate-500">No hay equipos registrados en resguardo para esta sucursal.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}

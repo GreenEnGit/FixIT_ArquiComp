@@ -43,12 +43,23 @@
 </head>
 <body>
 
-    <div class="no-print max-w-md mx-auto mt-4 text-center mb-6">
-        <button onclick="window.print()" class="bg-emerald-600 text-white px-6 py-2 rounded shadow hover:bg-emerald-700 font-sans font-bold">🖨️ Imprimir Ticket</button>
-        <a href="/pos" class="ml-4 text-slate-500 hover:text-slate-700 font-sans underline">← Volver a Caja</a>
+    <div class="no-print max-w-md mx-auto mt-4 text-center mb-6 flex flex-col items-center gap-3">
+        <div class="flex justify-center gap-2">
+            <button onclick="window.print()" class="bg-emerald-600 text-white px-6 py-2 rounded shadow hover:bg-emerald-700 font-sans font-bold">🖨️ Imprimir Ticket</button>
+            {% if not (sale.status or '').startswith('REVERTIDA') %}
+            <button onclick="revertPosSale({{ sale.id }})" class="bg-red-650 hover:bg-red-750 bg-red-600 text-white px-4 py-2 rounded shadow font-sans font-bold">↩️ Revertir Compra</button>
+            {% endif %}
+        </div>
+        <a href="/pos" class="text-slate-500 hover:text-slate-700 font-sans underline">← Volver a Caja</a>
     </div>
 
     <div class="ticket-container">
+        {% if (sale.status or '').startswith('REVERTIDA') %}
+        <div class="bg-red-100 border border-red-400 text-red-800 p-2.5 text-center text-xs font-bold font-sans rounded mb-3">
+            🚫 TICKET ANULADO / REVERTIDO
+            <p class="font-normal text-[10px] mt-1">{{ sale.status }}</p>
+        </div>
+        {% endif %}
         <div class="text-center mb-4">
             <h1 class="text-xl font-bold uppercase">{{ sale.branch_name }}</h1>
             <p class="text-xs">{{ sale.branch_address }}</p>
@@ -95,11 +106,32 @@
     </div>
 
     <script>
+        {% if not (sale.status or '').startswith('REVERTIDA') %}
         window.onload = function() {
             setTimeout(function() {
                 window.print();
             }, 500);
         };
+        {% endif %}
+
+        function revertPosSale(saleId) {
+            const reason = prompt("Por favor, ingrese el motivo de la cancelación/reversión de esta venta (obligatorio):");
+            if (reason === null) return;
+            if (reason.trim() === "") {
+                alert("El motivo de la reversión es obligatorio.");
+                return;
+            }
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/pos/receipt/' + saleId + '/revert';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'reason';
+            input.value = reason;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
     </script>
 </body>
 </html>

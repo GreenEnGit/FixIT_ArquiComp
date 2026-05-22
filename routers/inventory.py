@@ -17,9 +17,6 @@ async def inventory_sales(request: Request, branch_id: str = None, user: dict = 
 
 @router.post("/new", response_class=RedirectResponse)
 async def create_inventory(request: Request, name: str = Form(...), brand: str = Form(...), category: str = Form(...), cost: float = Form(...), price: float = Form(...), stock: int = Form(...), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
-    if user["role"] != "ADMIN":
-        from fastapi import HTTPException
-        raise HTTPException(status_code=403, detail="Solo los administradores pueden añadir inventario")
     c = db.cursor()
     import uuid
     new_id = f"ITM-{uuid.uuid4().hex[:8].upper()}"
@@ -77,7 +74,7 @@ async def deduct_stock(item_id: str, action: str = Form(...), details: str = For
             desc = "Venta Mostrador"
         elif action == "MERMA":
             impact = -row["cost"]
-            desc = details
+            desc = f"Merma: 1 uds. | Justificación: {details or 'Daño/Pérdida'}"
         else:
             desc = details
             
@@ -91,6 +88,55 @@ async def deduct_stock(item_id: str, action: str = Form(...), details: str = For
             return RedirectResponse(url=f"/inventory/receipt/{log_id}", status_code=303)
             
     return RedirectResponse(url="/inventory/sales", status_code=303)
+
+@router.post("/restock/{item_id}", response_class=RedirectResponse)
+async def restock_item(
+    item_id: str,
+    qty: int = Form(...),
+    cost: float = Form(...),
+    price: float = Form(...),
+    user: dict = Depends(get_current_user),
+    db: sqlite3.Connection = Depends(get_db_conn)
+):
+    if qty <= 0:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="La cantidad a surtir debe ser mayor a 0")
+        
+    if cost < 0 or price < 0:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="El costo y el precio no pueden ser negativos")
+        
+    c = db.cursor()
+    c.execute("SELECT * FROM inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
+    item = c.fetchone()
+    
+    if not item:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="El componente no existe en esta sucursal.")
+        
+    # Update stock and costs
+    c.execute(
+        "UPDATE inventory SET stock = stock + ?, cost = ?, price = ? WHERE id = ? AND branch_id = ?",
+        (qty, cost, price, item_id, user["branch_id"])
+    )
+    
+    # Audit log
+    from datetime import datetime
+    c.execute(
+        "INSERT INTO audit_logs (username, action, item_id, details, monetary_impact, date, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            user["username"],
+            "RESTOCK",
+            item_id,
+            f"Surtido: +{qty} uds. Nuevo Costo: ${cost:.2f}, Nuevo Precio: ${price:.2f}",
+            0.0,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            user["branch_id"]
+        )
+    )
+    db.commit()
+    return RedirectResponse(url="/inventory/sales", status_code=303)
+
 
 @router.get("/receipt/{log_id}", response_class=HTMLResponse)
 async def view_sale_receipt(request: Request, log_id: int, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -153,3 +199,70 @@ async def delete_inventory_item(item_id: str, user: dict = Depends(get_current_u
     c.execute("DELETE FROM inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
     db.commit()
     return RedirectResponse(url="/inventory/sales", status_code=303)
+
+
+@router.post("/item/{item_id}/edit", response_class=RedirectResponse)
+async def edit_inventory_item(
+    item_id: str,
+    name: str = Form(...),
+    brand: str = Form(...),
+    category: str = Form(...),
+    cost: float = Form(...),
+    price: float = Form(...),
+    user: dict = Depends(get_current_user),
+    db: sqlite3.Connection = Depends(get_db_conn)
+):
+    if cost < 0 or price < 0:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="El costo y el precio no pueden ser negativos")
+        
+    c = db.cursor()
+    c.execute("SELECT * FROM inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
+    item = c.fetchone()
+    
+    if not item:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="El artículo no existe en esta sucursal.")
+        
+    c.execute(
+        "UPDATE inventory SET name = ?, brand = ?, category = ?, cost = ?, price = ? WHERE id = ? AND branch_id = ?",
+        (name, brand, category, cost, price, item_id, user["branch_id"])
+    )
+    db.commit()
+    return RedirectResponse(url="/inventory/sales", status_code=303)
+
+
+@router.post("/item/{item_id}/clear-to-merma", response_class=RedirectResponse)
+async def clear_stock_to_merma(
+    item_id: str,
+    user: dict = Depends(get_current_user),
+    db: sqlite3.Connection = Depends(get_db_conn)
+):
+    c = db.cursor()
+    c.execute("SELECT name, stock, cost FROM inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
+    row = c.fetchone()
+    if not row:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Componente no encontrado")
+        
+    stock_qty = row["stock"]
+    if stock_qty <= 0:
+        return RedirectResponse(url="/inventory/sales", status_code=303)
+        
+    cost = row["cost"] or 0.0
+    impact = - (stock_qty * cost)
+    
+    # Update stock to 0
+    c.execute("UPDATE inventory SET stock = 0 WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
+    
+    # Audit Log
+    from datetime import datetime
+    desc = f"Merma: {stock_qty} uds. | [Vaciado de Stock]"
+    c.execute(
+        "INSERT INTO audit_logs (username, action, item_id, details, monetary_impact, date, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (user["username"], "MERMA", item_id, desc, impact, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user["branch_id"])
+    )
+    db.commit()
+    return RedirectResponse(url="/inventory/sales", status_code=303)
+
+

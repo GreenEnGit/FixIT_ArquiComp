@@ -6,10 +6,47 @@
     <title>FixIT - Multi-Sucursal e IA</title>
     <script src="/static/tailwindcss.js"></script>
     <style>
+        html {
+            zoom: 0.8;
+        }
+        #sidebar {
+            height: 125vh !important;
+        }
+        #sidebar-backdrop {
+            width: 125vw !important;
+            height: 125vh !important;
+        }
         body { background-color: #f8fafc; }
+        @media (min-width: 768px) {
+            body.sidebar-collapsed .sidebar-text {
+                display: none !important;
+            }
+            body.sidebar-collapsed .sidebar-header {
+                justify-content: center !important;
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+            }
+            body.sidebar-collapsed nav {
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+            }
+            body.sidebar-collapsed nav a {
+                justify-content: center !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+                gap: 0 !important;
+            }
+            body.sidebar-collapsed .sidebar-section-header {
+                display: none !important;
+            }
+            body.sidebar-collapsed .sidebar-profile {
+                display: none !important;
+            }
+        }
         @media print {
+            html { zoom: 1 !important; }
             .no-print { display: none !important; }
-            main, .ml-64 {
+            main, .ml-64, .md\:ml-64, .md\:ml-16 {
                 margin-left: 0 !important;
                 padding: 0 !important;
                 width: 100% !important;
@@ -36,18 +73,36 @@
         }
     </style>
 </head>
-<body class="flex min-h-screen text-slate-900 antialiased">
+<body class="flex flex-col md:flex-row min-h-screen text-slate-900 antialiased">
+    <!-- Mobile Header -->
+    <div class="md:hidden bg-slate-900 text-white p-4 flex justify-between items-center no-print">
+        <h1 class="text-lg font-bold text-blue-500">🔧 FixIT</h1>
+        <button onclick="toggleMobileSidebar()" class="text-slate-400 hover:text-white p-1">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+    </div>
+
+    <!-- Mobile Backdrop -->
+    <div id="sidebar-backdrop" onclick="toggleMobileSidebar()" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-10 md:hidden"></div>
+
     <!-- Sidebar -->
-    <div class="w-64 bg-slate-900 h-screen fixed left-0 top-0 text-white flex flex-col shadow-xl z-20 no-print">
-        <div class="p-6 border-b border-slate-800">
-            <h1 class="text-xl font-bold flex items-center gap-2 text-blue-500">
-                🔧 FixIT
-            </h1>
-            <p class="text-xs text-slate-400 mt-1">Multi-Sucursal & IA</p>
+    <div id="sidebar" class="w-64 bg-slate-900 h-screen fixed left-0 top-0 text-white flex flex-col shadow-xl z-20 no-print transition-all duration-300 -translate-x-full md:translate-x-0 md:w-64">
+        <div class="p-6 border-b border-slate-800 flex justify-between items-center sidebar-header">
+            <div class="sidebar-text">
+                <h1 class="text-xl font-bold flex items-center gap-2 text-blue-500">
+                    🔧 FixIT
+                </h1>
+                <p class="text-xs text-slate-400 mt-1">Multi-Sucursal & IA</p>
+            </div>
+            <!-- Toggle Desktop Sidebar -->
+            <button onclick="toggleSidebar()" class="hidden md:block text-slate-400 hover:text-white p-1.5 rounded hover:bg-slate-800 transition-colors">
+                <svg id="toggle-icon-left" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
+                <svg id="toggle-icon-right" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
+            </button>
         </div>
         
         <!-- Real Auth Display -->
-        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/50">
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/50 sidebar-profile">
             <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Usuario Actual:</p>
             <div class="flex items-center gap-2 mb-4">
                 <span class="px-3 py-1 text-xs font-bold rounded border border-blue-500 text-blue-400 bg-blue-900/30 w-full text-center">
@@ -56,8 +111,15 @@
             </div>
             
             <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Sucursal:</p>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 w-full">
+                {% if user.role == 'ADMIN' %}
+                <select onchange="switchBranch(this.value)" class="px-2 py-1 text-xs font-bold rounded bg-slate-700 text-slate-300 w-full text-center border-0 focus:ring-1 focus:ring-blue-500 cursor-pointer">
+                    <option value="NORTE" {% if user.branch_id == 'NORTE' %}selected{% endif %}>Sucursal Norte</option>
+                    <option value="CENTRO" {% if user.branch_id == 'CENTRO' %}selected{% endif %}>Sucursal Centro</option>
+                </select>
+                {% else %}
                 <span class="px-3 py-1 text-xs font-bold rounded bg-slate-700 text-slate-300 w-full text-center">{{ user.branch_id }}</span>
+                {% endif %}
             </div>
             <div class="mt-4 text-center">
                 <a href="/logout" class="text-xs text-red-400 hover:text-red-300 underline">Cerrar Sesión</a>
@@ -66,57 +128,129 @@
 
         <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
             <a href="/" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                📊 Dashboard
+                <span>📊</span> <span class="sidebar-text">Dashboard</span>
             </a>
             <a href="/reports" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                📈 Reportes Financieros
+                <span>📈</span> <span class="sidebar-text">Reportes Financieros</span>
             </a>
             <a href="/appointments" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                📅 Portal de Citas
+                <span>📅</span> <span class="sidebar-text">Portal de Citas</span>
             </a>
             <a href="/ticket" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                🎟️ Gestión de Tickets
+                <span>🎟️</span> <span class="sidebar-text">Gestión de Tickets</span>
             </a>
             <a href="/intake" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                📦 Recepción Rápida
+                <span>📦</span> <span class="sidebar-text">Recepción Rápida</span>
             </a>
             
-            <div class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase mt-4">Gestión de Taller</div>
+            <div class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase mt-4 sidebar-section-header">Gestión de Taller</div>
             <a href="/customers" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                <div class="w-2 h-2 rounded-full bg-blue-500"></div> Directorio Clientes
+                <span class="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span> <span class="sidebar-text">Directorio Clientes</span>
             </a>
             <a href="/pos" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                <div class="w-2 h-2 rounded-full bg-amber-400"></div> Punto de Venta (POS)
+                <span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span> <span class="sidebar-text">Punto de Venta (POS)</span>
             </a>
             <a href="/inventory/sales" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                <div class="w-2 h-2 rounded-full bg-emerald-500"></div> Stock Componentes
+                <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span> <span class="sidebar-text">Stock Componentes</span>
             </a>
             <a href="/devices" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                <div class="w-2 h-2 rounded-full bg-indigo-500"></div> Resguardo Dispositivos
+                <span class="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span> <span class="sidebar-text">Resguardo Dispositivos</span>
             </a>
             
-            <div class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase mt-4">Herramientas</div>
+            <div class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase mt-4 sidebar-section-header">Herramientas</div>
             <a href="/knowledge" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                📚 Base de Conocimientos
+                <span>📚</span> <span class="sidebar-text">Base de Conocimientos</span>
             </a>
             <a href="/profile" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                🙍‍ Personalizar Perfil
+                <span>🙍‍</span> <span class="sidebar-text">Personalizar Perfil</span>
             </a>
 
             {% if user.role == 'ADMIN' %}
             <a href="/users" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                👥 Personal y Seguridad
+                <span>👥</span> <span class="sidebar-text">Personal y Seguridad</span>
             </a>
             <a href="/audit" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white text-sm">
-                👁️ Auditoría Global
+                <span>👁️</span> <span class="sidebar-text">Auditoría Global</span>
             </a>
             {% endif %}
         </nav>
     </div>
 
-    <!-- Script para Menú Activo -->
+    <!-- Script para Menú Activo y Sidebar Responsivo -->
     <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('main-content');
+            const iconLeft = document.getElementById('toggle-icon-left');
+            const iconRight = document.getElementById('toggle-icon-right');
+            
+            const isCollapsed = sidebar.classList.toggle('md:w-16');
+            if (isCollapsed) {
+                sidebar.classList.remove('md:w-64');
+                mainContent.classList.remove('md:ml-64');
+                mainContent.classList.add('md:ml-16');
+                document.body.classList.add('sidebar-collapsed');
+                if (iconLeft && iconRight) {
+                    iconLeft.classList.add('hidden');
+                    iconRight.classList.remove('hidden');
+                }
+                localStorage.setItem('sidebar-collapsed', 'true');
+            } else {
+                sidebar.classList.add('md:w-64');
+                mainContent.classList.add('md:ml-64');
+                mainContent.classList.remove('md:ml-16');
+                document.body.classList.remove('sidebar-collapsed');
+                if (iconLeft && iconRight) {
+                    iconLeft.classList.remove('hidden');
+                    iconRight.classList.add('hidden');
+                }
+                localStorage.setItem('sidebar-collapsed', 'false');
+            }
+        }
+
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            const isOpen = sidebar.classList.toggle('translate-x-0');
+            if (isOpen) {
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+            }
+        }
+
+        function switchBranch(branchId) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/set_branch/' + branchId;
+            document.body.appendChild(form);
+            form.submit();
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            // Restore sidebar state
+            const sidebarCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+            if (sidebarCollapsed && window.innerWidth >= 768) {
+                const sidebar = document.getElementById('sidebar');
+                const mainContent = document.getElementById('main-content');
+                const iconLeft = document.getElementById('toggle-icon-left');
+                const iconRight = document.getElementById('toggle-icon-right');
+                if (sidebar && mainContent) {
+                    sidebar.classList.remove('md:w-64');
+                    sidebar.classList.add('md:w-16');
+                    mainContent.classList.remove('md:ml-64');
+                    mainContent.classList.add('md:ml-16');
+                    document.body.classList.add('sidebar-collapsed');
+                    if (iconLeft && iconRight) {
+                        iconLeft.classList.add('hidden');
+                        iconRight.classList.remove('hidden');
+                    }
+                }
+            }
+
+            // Active menu link styling
             const currentPath = window.location.pathname;
             const navLinks = document.querySelectorAll('nav a');
             navLinks.forEach(link => {
@@ -130,7 +264,7 @@
     </script>
 
     <!-- Main Content -->
-    <main class="flex-1 ml-64 overflow-y-auto p-8 relative min-h-screen">
+    <main id="main-content" class="flex-1 ml-0 md:ml-64 overflow-y-auto p-4 md:p-6 lg:p-8 relative min-h-screen transition-all duration-300">
         <!-- Barra de Búsqueda Global -->
         <div class="mb-8 relative z-50 max-w-4xl mx-auto no-print">
             <div class="relative">

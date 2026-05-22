@@ -199,6 +199,7 @@ def init_db():
         date TEXT NOT NULL,
         branch_id TEXT NOT NULL,
         username TEXT NOT NULL,
+        status TEXT DEFAULT 'COMPLETADA',
         FOREIGN KEY (branch_id) REFERENCES branches(id)
     )''')
 
@@ -212,6 +213,11 @@ def init_db():
         FOREIGN KEY (sale_id) REFERENCES sales(id),
         FOREIGN KEY (item_id) REFERENCES inventory(id)
     )''')
+
+    try:
+        cursor.execute("ALTER TABLE sales ADD COLUMN status TEXT DEFAULT 'COMPLETADA'")
+    except sqlite3.OperationalError:
+        pass
 
     # Create Performance Indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tickets_branch ON tickets(branch_id)")

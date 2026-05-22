@@ -37,11 +37,19 @@ def get_current_user_optional(session_token: str = Cookie(default=None), db: sql
         return None
     return None
 
-def get_current_user(user: dict = Depends(get_current_user_optional)):
+def get_current_user(request: Request, user: dict = Depends(get_current_user_optional), db: sqlite3.Connection = Depends(get_db_conn)):
     if not user:
         # FastAPI no permite RedirectResponse fácilmente en Depends que devuelven HTML
         # Se maneja en main.py usando exception handlers, levantando HTTPException(401)
         raise HTTPException(status_code=401, detail="No autenticado")
+    
+    if user["role"] == "ADMIN":
+        active_branch = request.cookies.get("active_branch_id")
+        if active_branch:
+            c = db.cursor()
+            c.execute("SELECT id FROM branches WHERE id = ?", (active_branch,))
+            if c.fetchone():
+                user["branch_id"] = active_branch
     return user
 
 def require_admin(user: dict = Depends(get_current_user)):

@@ -7,59 +7,96 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr class="bg-slate-50 border-b border-slate-200 text-sm text-slate-600">
-                    <th class="p-4 font-semibold">Fecha y Hora</th>
-                    <th class="p-4 font-semibold">Usuario</th>
-                    <th class="p-4 font-semibold">Sucursal</th>
-                    <th class="p-4 font-semibold">Acción</th>
-                    <th class="p-4 font-semibold">Elemento Afectado</th>
-                    <th class="p-4 font-semibold">Justificación / Detalles</th>
-                    <th class="p-4 font-semibold text-right">Impacto Financiero</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 text-sm">
-                {% for log in logs %}
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="p-4 font-mono text-xs text-slate-500 whitespace-nowrap">{{ log.date }}</td>
-                    <td class="p-4 font-bold text-slate-700">@{{ log.username }}</td>
-                    <td class="p-4 text-slate-600">{{ log.branch_id }}</td>
-                    <td class="p-4">
-                        {% if log.action == 'VENTA_DIRECTA' %}
-                            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-800">Venta Mostrador</span>
-                        {% elif log.action == 'MERMA' %}
-                            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">Merma / Daño</span>
-                        {% elif log.action == 'USO_INTERNO' %}
-                            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-orange-100 text-orange-800">Uso Interno</span>
-                        {% else %}
-                            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-800">{{ log.action }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="p-4">
-                        <div class="font-semibold text-slate-800">{{ log.item_name or log.item_id }}</div>
-                        <div class="font-mono text-[10px] text-slate-400">ID: {{ log.item_id }}</div>
-                    </td>
-                    <td class="p-4 text-slate-600 italic">
-                        {{ log.details }}
-                    </td>
-                    <td class="p-4 text-right font-black">
-                        {% if log.monetary_impact > 0 %}
-                            <span class="text-emerald-600">+${{ "{:,.2f}".format(log.monetary_impact) }}</span>
-                        {% elif log.monetary_impact < 0 %}
-                            <span class="text-red-600">-${{ "{:,.2f}".format(log.monetary_impact|abs) }}</span>
-                        {% else %}
-                            <span class="text-slate-400">$0.00</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="7" class="p-8 text-center text-slate-500">No hay registros de auditoría aún.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-sm text-slate-600">
+                        <th class="p-4 font-semibold">Fecha y Hora</th>
+                        <th class="p-4 font-semibold">Usuario</th>
+                        <th class="p-4 font-semibold">Sucursal</th>
+                        <th class="p-4 font-semibold">Acción</th>
+                        <th class="p-4 font-semibold">Elemento Afectado</th>
+                        <th class="p-4 font-semibold">Justificación / Detalles</th>
+                        <th class="p-4 font-semibold text-right">Impacto Financiero</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 text-sm">
+                    {% for log in logs %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-4 font-mono text-xs text-slate-500 whitespace-nowrap">{{ log.date }}</td>
+                        <td class="p-4 font-bold text-slate-700">@{{ log.username }}</td>
+                        <td class="p-4 text-slate-600">{{ log.branch_id }}</td>
+                        <td class="p-4">
+                            {% if log.action == 'VENTA_DIRECTA' %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-800">Venta Mostrador</span>
+                            {% elif log.action == 'MERMA' %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">Merma / Daño</span>
+                            {% elif log.action == 'USO_INTERNO' %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-orange-100 text-orange-800">Uso Interno</span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-800">{{ log.action }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4">
+                            <div class="font-semibold text-slate-800">{{ log.item_name or log.item_id }}</div>
+                            <div class="font-mono text-[10px] text-slate-400">ID: {{ log.item_id }}</div>
+                        </td>
+                        <td class="p-4 text-slate-600 italic">
+                            <div class="flex items-center justify-between gap-4">
+                                <span>{{ log.details }}</span>
+                                {% if log.action == 'MERMA' and not log.details.startswith('[REVERTIDO]') %}
+                                <form action="/audit/{{ log.id }}/revert" method="POST" onsubmit="return confirm('¿Estás seguro de revertir esta merma? El stock se devolverá al inventario.')" class="inline">
+                                    <button type="submit" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-850 rounded border border-red-200 text-[10px] font-bold transition-all whitespace-nowrap">
+                                        ↩️ Revertir Merma
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if log.action == 'RESTOCK' and not log.details.startswith('[REVERTIDO]') %}
+                                <button onclick="revertRestock({{ log.id }}, '{{ (log.item_name or log.item_id)|replace(\"'\", \"\\'\") }}')" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-800 rounded border border-blue-200 text-[10px] font-bold transition-all whitespace-nowrap">
+                                    ↩️ Revertir Surtido
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="p-4 text-right font-black">
+                            {% if log.monetary_impact > 0 %}
+                                <span class="text-emerald-600">+${{ "{:,.2f}".format(log.monetary_impact) }}</span>
+                            {% elif log.monetary_impact < 0 %}
+                                <span class="text-red-600">-${{ "{:,.2f}".format(log.monetary_impact|abs) }}</span>
+                            {% else %}
+                                <span class="text-slate-400">$0.00</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="p-8 text-center text-slate-500">No hay registros de auditoría aún.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+<script>
+function revertRestock(logId, itemName) {
+    const reason = prompt("Por favor, describa el error por el cual desea revertir este surtido de '" + itemName + "' (obligatorio):");
+    if (reason === null) return;
+    if (reason.trim() === "") {
+        alert("El motivo de la reversión es obligatorio.");
+        return;
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/audit/' + logId + '/revert-restock';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'reason';
+    input.value = reason;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
 {% endblock %}

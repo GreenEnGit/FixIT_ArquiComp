@@ -27,7 +27,9 @@ async def add_customer(request: Request, name: str = Form(...), phone: str = For
 async def list_devices(request: Request, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
     c = db.cursor()
     c.execute("""
-        SELECT d.*, c.name as customer_name 
+        SELECT d.*, c.name as customer_name,
+               (SELECT status FROM tickets WHERE device_id = d.id ORDER BY id DESC LIMIT 1) as ticket_status,
+               (SELECT id FROM tickets WHERE device_id = d.id ORDER BY id DESC LIMIT 1) as ticket_id
         FROM customer_devices d 
         JOIN customers c ON d.customer_id = c.id
         WHERE d.branch_id = ?
@@ -78,10 +80,34 @@ async def tracking_portal(request: Request, ticket_id: str, db: sqlite3.Connecti
         WHERE t.id = ?
     """, (ticket_id,))
     ticket = c.fetchone()
+    if not ticket:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+        
     c.execute("SELECT * FROM warranties WHERE ticket_id = ?", (ticket_id,))
     warranty = c.fetchone()
+    
+    c.execute("SELECT amount, method, date FROM payments WHERE ticket_id = ?", (ticket_id,))
+    payments = c.fetchall()
+    
+    c.execute("SELECT name, qty, price FROM ticket_parts WHERE ticket_id = ?", (ticket_id,))
+    parts = c.fetchall()
+    
+    total_parts = sum([p["qty"] * p["price"] for p in parts])
+    total_amount = float(ticket["labor_cost"] or 0.0) + float(total_parts)
+    total_paid = sum([float(p["amount"]) for p in payments])
+    balance_due = max(0.0, total_amount - total_paid)
         
-    return templates.TemplateResponse("tracking.html", {"request": request, "ticket": ticket, "warranty": warranty})
+    return templates.TemplateResponse("tracking.html", {
+        "request": request,
+        "ticket": ticket,
+        "warranty": warranty,
+        "payments": payments,
+        "parts": parts,
+        "total_amount": total_amount,
+        "total_paid": total_paid,
+        "balance_due": balance_due
+    })
 
 @router.post("/customer/{customer_id}/delete", response_class=RedirectResponse)
 async def delete_customer(customer_id: str, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):

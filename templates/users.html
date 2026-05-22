@@ -18,38 +18,40 @@
 
     <!-- Lista de Usuarios -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
-                    <th class="p-4 font-bold">ID</th>
-                    <th class="p-4 font-bold">Usuario</th>
-                    <th class="p-4 font-bold">Rol</th>
-                    <th class="p-4 font-bold">Sucursal</th>
-                    <th class="p-4 font-bold text-right">Acciones</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 text-sm">
-                {% for u in users_list %}
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="p-4 font-mono text-slate-400 font-bold">{{ u.id }}</td>
-                    <td class="p-4 font-bold text-slate-900">{{ u.username }}</td>
-                    <td class="p-4">
-                        <span class="px-2 py-1 rounded text-xs font-bold {% if u.role == 'ADMIN' %}bg-purple-100 text-purple-800{% else %}bg-blue-100 text-blue-800{% endif %}">
-                            {{ u.role }}
-                        </span>
-                    </td>
-                    <td class="p-4 text-slate-500 font-bold">{{ u.branch_id }}</td>
-                    <td class="p-4 text-right">
-                        {% if user.role == 'ADMIN' and u.username != user.username %}
-                        <form action="/users/{{ u.id }}/delete" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de eliminar a este empleado del sistema?');">
-                            <button type="submit" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm">Eliminar</button>
-                        </form>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
+                        <th class="p-4 font-bold">ID</th>
+                        <th class="p-4 font-bold">Usuario</th>
+                        <th class="p-4 font-bold">Rol</th>
+                        <th class="p-4 font-bold">Sucursal</th>
+                        <th class="p-4 font-bold text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-sm">
+                    {% for u in users_list %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-4 font-mono text-slate-400 font-bold">{{ u.id }}</td>
+                        <td class="p-4 font-bold text-slate-900">{{ u.username }}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold {% if u.role == 'ADMIN' %}bg-purple-100 text-purple-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                                {{ u.role }}
+                            </span>
+                        </td>
+                        <td class="p-4 text-slate-500 font-bold">{{ u.branch_id }}</td>
+                        <td class="p-4 text-right">
+                            {% if user.role == 'ADMIN' and u.username != user.username %}
+                            <form action="/users/{{ u.id }}/delete" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de eliminar a este empleado del sistema?');">
+                                <button type="submit" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm">Eliminar</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Modal Nuevo Usuario -->

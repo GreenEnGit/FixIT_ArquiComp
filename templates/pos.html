@@ -1,8 +1,8 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="h-[calc(100vh-8rem)] flex gap-6">
+<div class="flex flex-col lg:flex-row gap-6 h-auto">
     <!-- Izquierda: Catálogo y Buscador -->
-    <div class="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-[550px] lg:h-[600px]">
         <div class="p-4 border-b border-slate-200 bg-slate-50">
             <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -13,9 +13,14 @@
         </div>
         
         <div class="flex-1 overflow-y-auto p-4 bg-slate-50/50">
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="posGrid">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4" id="posGrid">
                 {% for item in items %}
-                <div class="pos-item bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col justify-between h-full" onclick="addToCart('{{ item.id }}', '{{ item.name }}', {{ item.price }}, {{ item.stock }})">
+                <div class="pos-item bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col justify-between h-full" 
+                     data-id="{{ item.id }}" 
+                     data-name="{{ item.name }}" 
+                     data-price="{{ item.price }}" 
+                     data-stock="{{ item.stock }}"
+                     onclick="handleItemClick(this)">
                     <div>
                         <div class="text-xs text-slate-400 font-mono mb-1 pos-sku">{{ item.id }}</div>
                         <h3 class="font-bold text-slate-800 text-sm leading-tight mb-1 pos-name">{{ item.name }}</h3>
@@ -34,7 +39,7 @@
     </div>
 
     <!-- Derecha: Carrito de Compras -->
-    <div class="w-96 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden shrink-0">
+    <div class="w-full lg:w-[420px] flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden shrink-0 h-[550px] lg:h-[600px]">
         <div class="bg-slate-900 px-6 py-4">
             <h2 class="text-white font-bold flex items-center gap-2">
                 <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
@@ -42,34 +47,32 @@
             </h2>
         </div>
         
-        <div class="flex-1 overflow-y-auto p-0" id="cartContainer">
-            <table class="w-full text-left border-collapse text-sm">
-                <tbody id="cartItems" class="divide-y divide-slate-100">
-                    <!-- JS rellena esto -->
-                </tbody>
-            </table>
+        <div class="flex-1 overflow-y-auto p-4 space-y-3" id="cartContainer">
+            <div id="cartItems" class="space-y-3">
+                <!-- JS rellena esto -->
+            </div>
             <div id="emptyCartMsg" class="text-center text-slate-400 py-12 px-4">
                 <svg class="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
                 <p>El carrito está vacío.<br>Selecciona productos a la izquierda.</p>
             </div>
         </div>
 
-        <div class="bg-slate-50 border-t border-slate-200 p-6">
-            <div class="flex justify-between items-center mb-2 text-slate-600">
+        <div class="bg-slate-50 border-t border-slate-200 p-4">
+            <div class="flex justify-between items-center mb-1 text-xs text-slate-500">
                 <span>Subtotal</span>
-                <span id="cartSubtotal" class="font-mono">$0.00</span>
+                <span id="cartSubtotal" class="font-mono font-medium">$0.00</span>
             </div>
-            <div class="flex justify-between items-center mb-4 text-slate-600">
+            <div class="flex justify-between items-center mb-2 text-xs text-slate-500">
                 <span>IVA (16% Incluido)</span>
-                <span id="cartTax" class="font-mono">$0.00</span>
+                <span id="cartTax" class="font-mono font-medium">$0.00</span>
             </div>
-            <div class="flex justify-between items-center mb-6 text-xl">
-                <span class="font-bold text-slate-900">Total</span>
+            <div class="flex justify-between items-center mb-3 text-lg">
+                <span class="font-bold text-slate-800">Total</span>
                 <span id="cartTotal" class="font-black text-emerald-600">$0.00</span>
             </div>
             
-            <button id="checkoutBtn" onclick="processCheckout()" disabled class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+            <button id="checkoutBtn" onclick="processCheckout()" disabled class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                 Cobrar Ticket
             </button>
         </div>
@@ -95,16 +98,50 @@ function filterPOS() {
         }
     });
 }
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function handleItemClick(element) {
+    const id = element.getAttribute('data-id');
+    const name = element.getAttribute('data-name');
+    const price = parseFloat(element.getAttribute('data-price'));
+    const stock = parseInt(element.getAttribute('data-stock'));
+    addToCart(id, name, price, stock);
+}
 
 function addToCart(id, name, price, maxStock) {
+    price = parseFloat(price);
+    maxStock = parseInt(maxStock);
+    if (isNaN(price)) price = 0.0;
+    if (isNaN(maxStock)) maxStock = 0;
+
+    let qtyStr = prompt("¿Cuántas unidades de '" + name + "' deseas añadir al carrito?", "1");
+    if (qtyStr === null) return;
+    let qty = parseInt(qtyStr);
+    if (isNaN(qty) || qty <= 0) {
+        alert("Cantidad no válida.");
+        return;
+    }
+    if (qty > maxStock) {
+        alert("No puedes añadir más de la existencia disponible (" + maxStock + " unidades).");
+        return;
+    }
     if (cart[id]) {
-        if (cart[id].qty < maxStock) {
-            cart[id].qty++;
+        if (cart[id].qty + qty <= maxStock) {
+            cart[id].qty += qty;
         } else {
-            alert(`Stock máximo alcanzado para ${name}`);
+            alert("No puedes exceder el stock disponible (" + maxStock + " unidades en total).");
+            return;
         }
     } else {
-        cart[id] = { id, name, price, qty: 1, maxStock };
+        cart[id] = { id: id, name: name, price: price, qty: qty, maxStock: maxStock };
     }
     renderCart();
 }
@@ -122,7 +159,31 @@ function updateQty(id, delta) {
     }
 }
 
+function setQty(id, value) {
+    if (cart[id]) {
+        let val = parseInt(value);
+        if (isNaN(val) || val <= 0) {
+            delete cart[id];
+        } else if (val > cart[id].maxStock) {
+            alert('Stock máximo alcanzado (' + cart[id].maxStock + ')');
+            cart[id].qty = cart[id].maxStock;
+        } else {
+            cart[id].qty = val;
+        }
+        renderCart();
+    }
+}
+
+function removeFromCart(id) {
+    if (cart[id]) {
+        delete cart[id];
+        renderCart();
+    }
+}
+
 function formatMoney(amount) {
+    amount = parseFloat(amount);
+    if (isNaN(amount)) amount = 0.0;
     return '$' + amount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
 }
 
@@ -132,7 +193,7 @@ function renderCart() {
     const checkoutBtn = document.getElementById('checkoutBtn');
     tbody.innerHTML = '';
     
-    let total = 0;
+    let total = 0.0;
     const items = Object.values(cart);
     
     if (items.length === 0) {
@@ -146,26 +207,27 @@ function renderCart() {
             const subtotal = item.price * item.qty;
             total += subtotal;
             
-            tbody.innerHTML += `
-                <tr class="hover:bg-slate-50">
-                    <td class="p-3">
-                        <div class="font-bold text-slate-800 text-xs leading-tight mb-1">${item.name}</div>
-                        <div class="flex items-center gap-2">
-                            <button onclick="updateQty('${item.id}', -1)" class="w-6 h-6 rounded bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-700 font-bold">-</button>
-                            <span class="w-4 text-center text-sm font-semibold">${item.qty}</span>
-                            <button onclick="updateQty('${item.id}', 1)" class="w-6 h-6 rounded bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-700 font-bold">+</button>
-                        </div>
-                    </td>
-                    <td class="p-3 text-right font-black text-emerald-600 text-sm align-bottom">
-                        ${formatMoney(subtotal)}
-                    </td>
-                </tr>
-            `;
+            let cardHtml = '<div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-slate-100 transition-colors flex flex-col gap-2">';
+            cardHtml += '  <div class="flex justify-between items-start">';
+            cardHtml += '    <span class="font-bold text-slate-800 text-xs leading-tight pr-2">' + escapeHtml(item.name) + '</span>';
+            cardHtml += '    <button onclick="removeFromCart(\'' + item.id + '\')" class="text-red-500 hover:text-red-700 text-sm font-bold p-1 rounded hover:bg-red-50 transition-colors" title="Eliminar del carrito">✕</button>';
+            cardHtml += '  </div>';
+            cardHtml += '  <div class="flex justify-between items-center mt-1">';
+            cardHtml += '    <div class="flex items-center gap-1.5">';
+            cardHtml += '      <button onclick="updateQty(\'' + item.id + '\', -1)" class="w-6 h-6 rounded bg-white border border-slate-300 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold shadow-sm">-</button>';
+            cardHtml += '      <input type="number" min="1" max="' + item.maxStock + '" value="' + item.qty + '" onchange="setQty(\'' + item.id + '\', this.value)" class="w-14 text-center text-sm font-semibold border rounded bg-white border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 py-0.5 shadow-sm">';
+            cardHtml += '      <button onclick="updateQty(\'' + item.id + '\', 1)" class="w-6 h-6 rounded bg-white border border-slate-300 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold shadow-sm">+</button>';
+            cardHtml += '    </div>';
+            cardHtml += '    <span class="font-black text-emerald-600 text-sm">' + formatMoney(subtotal) + '</span>';
+            cardHtml += '  </div>';
+            cardHtml += '</div>';
+            
+            tbody.innerHTML += cardHtml;
         });
     }
     
     const tax = total - (total / 1.16);
-    const subtotal = total; // We display total as subtotal for simplicity in Mexico (VAT included)
+    const subtotal = total;
     
     document.getElementById('cartSubtotal').textContent = formatMoney(subtotal);
     document.getElementById('cartTax').textContent = formatMoney(tax);
@@ -175,6 +237,10 @@ function renderCart() {
 async function processCheckout() {
     const items = Object.values(cart).map(i => ({ id: i.id, qty: i.qty }));
     if (items.length === 0) return;
+    
+    if (!confirm("¿Realmente se realizó la compra de estos artículos?")) {
+        return;
+    }
     
     const btn = document.getElementById('checkoutBtn');
     btn.disabled = true;

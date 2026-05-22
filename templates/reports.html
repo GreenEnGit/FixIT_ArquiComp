@@ -1,5 +1,24 @@
 {% extends "layout.html" %}
 {% block content %}
+<style>
+    @media print {
+        /* Force display of all tabs during print */
+        .tab-content {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        /* Page break before each subsequent tab content */
+        .tab-content + .tab-content {
+            page-break-before: always !important;
+            margin-top: 3rem !important;
+        }
+        /* Ensure tables render full width and aren't clipped */
+        .overflow-x-auto {
+            overflow: visible !important;
+        }
+    }
+</style>
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
     <!-- Header principal con efecto premium -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
@@ -197,6 +216,7 @@
         <div class="p-0">
             <!-- Pestaña 1: Tickets de Servicio -->
             <div id="tab-tickets" class="tab-content block">
+                <h3 class="hidden print:block text-lg font-black text-slate-800 mb-4 mt-6 border-b pb-2 px-6">1. Flujo de Tickets de Servicio Cobrados</h3>
                 {% if tickets %}
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left border-collapse">
@@ -251,6 +271,7 @@
 
             <!-- Pestaña 2: Ventas Directas (POS) -->
             <div id="tab-pos" class="tab-content hidden">
+                <h3 class="hidden print:block text-lg font-black text-slate-800 mb-4 mt-6 border-b pb-2 px-6">2. Flujo de Ventas Directas en Mostrador (POS)</h3>
                 {% if direct_sales %}
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left border-collapse">
@@ -301,6 +322,7 @@
 
             <!-- Pestaña 3: Mermas y Pérdidas -->
             <div id="tab-mermas" class="tab-content hidden">
+                <h3 class="hidden print:block text-lg font-black text-slate-800 mb-4 mt-6 border-b pb-2 px-6">3. Registro de Mermas y Pérdidas</h3>
                 {% if mermas %}
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left border-collapse">

@@ -23,10 +23,27 @@ async def list_users(request: Request, user: dict = Depends(get_current_user), d
 async def create_user(request: Request, username: str = Form(...), password: str = Form(...), role: str = Form(...), branch_id: str = Form(...), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
     if user["role"] != "ADMIN":
         raise HTTPException(status_code=403, detail="No autorizado")
+    
+    # Enforce constraints
+    username = username.strip()
+    if len(username) < 3:
+        raise HTTPException(status_code=400, detail="El nombre de usuario debe tener al menos 3 caracteres.")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres.")
+    if role not in ["ADMIN", "TECNICO"]:
+        raise HTTPException(status_code=400, detail="Rol no válido. Debe ser ADMIN o TECNICO.")
+        
     c = db.cursor()
+    c.execute("SELECT id FROM branches WHERE id = ?", (branch_id,))
+    if not c.fetchone():
+        raise HTTPException(status_code=400, detail="Sucursal no válida.")
+        
     p_hash = get_password_hash(password)
-    c.execute("INSERT INTO users (username, password_hash, role, branch_id) VALUES (?, ?, ?, ?)", (username, p_hash, role, branch_id))
-    db.commit()
+    try:
+        c.execute("INSERT INTO users (username, password_hash, role, branch_id) VALUES (?, ?, ?, ?)", (username, p_hash, role, branch_id))
+        db.commit()
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="El nombre de usuario ya está en uso.")
     return RedirectResponse(url="/users", status_code=303)
 
 # Profile view and update endpoints for self‑service profile management
@@ -78,6 +95,29 @@ async def download_backup(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Database not found")
     return Response(content=open(db_path, "rb").read(), media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename=FixIT_Backup_{os.path.basename(db_path)}"})
 
+@router.post("/users/{user_id}/delete", response_class=RedirectResponse)
+async def delete_user(user_id: int, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
+    if user["role"] != "ADMIN":
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    c = db.cursor()
+    c.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+    target_user = c.fetchone()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+    if target_user["username"] == user["username"]:
+        raise HTTPException(status_code=400, detail="No te puedes eliminar a ti mismo.")
+        
+    c.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    
+    # Audit log
+    c.execute("INSERT INTO audit_logs (username, action, item_id, details, date, branch_id) VALUES (?, ?, ?, ?, ?, ?)",
+              (user["username"], "ELIMINACION", str(user_id), f"Eliminó al usuario: {target_user['username']}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user["branch_id"]))
+              
+    db.commit()
+    return RedirectResponse(url="/users", status_code=303)
+
 @router.get("/audit", response_class=HTMLResponse)
 async def view_audit_logs(request: Request, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
     if user["role"] != "ADMIN":
@@ -92,3 +132,136 @@ async def view_audit_logs(request: Request, user: dict = Depends(get_current_use
     """)
     logs = c.fetchall()
     return templates.TemplateResponse("audit.html", {"request": request, "user": user, "logs": logs})
+
+@router.post("/set_branch/{branch_id}", response_class=RedirectResponse)
+async def set_branch(request: Request, branch_id: str, response: Response, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
+    if user["role"] != "ADMIN":
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    c = db.cursor()
+    c.execute("SELECT id FROM branches WHERE id = ?", (branch_id,))
+    if not c.fetchone():
+        raise HTTPException(status_code=400, detail="Sucursal inválida")
+        
+    referer = request.headers.get("referer", "/")
+    from urllib.parse import urlparse
+    parsed = urlparse(referer)
+    redirect_url = parsed.path
+    if parsed.query:
+        redirect_url += f"?{parsed.query}"
+    if not redirect_url.startswith("/"):
+        redirect_url = "/"
+        
+    res = RedirectResponse(url=redirect_url, status_code=303)
+    res.set_cookie(key="active_branch_id", value=branch_id, httponly=True)
+    return res
+
+
+@router.post("/audit/{log_id}/revert", response_class=RedirectResponse)
+async def revert_merma_log(
+    log_id: int,
+    user: dict = Depends(get_current_user),
+    db: sqlite3.Connection = Depends(get_db_conn)
+):
+    if user["role"] != "ADMIN":
+        raise HTTPException(status_code=403, detail="Solo los administradores pueden revertir mermas")
+        
+    c = db.cursor()
+    c.execute("SELECT * FROM audit_logs WHERE id = ?", (log_id,))
+    log = c.fetchone()
+    if not log:
+        raise HTTPException(status_code=404, detail="Registro de auditoría no encontrado")
+        
+    if log["action"] != "MERMA":
+        raise HTTPException(status_code=400, detail="Solo se pueden revertir registros de tipo Merma")
+        
+    details = log["details"] or ""
+    if details.startswith("[REVERTIDO]"):
+        raise HTTPException(status_code=400, detail="Esta merma ya fue revertida previamente")
+        
+    import re
+    match = re.search(r"Merma:\s*(\d+)\s*uds", details)
+    if not match:
+        raise HTTPException(status_code=400, detail="No se pudo determinar la cantidad a revertir desde el registro")
+        
+    qty = int(match.group(1))
+    item_id = log["item_id"]
+    branch_id = log["branch_id"]
+    
+    # Check if item exists
+    c.execute("SELECT id FROM inventory WHERE id = ? AND branch_id = ?", (item_id, branch_id))
+    item = c.fetchone()
+    if not item:
+        raise HTTPException(status_code=404, detail="El componente asociado a esta merma ya no existe en el inventario de esta sucursal")
+        
+    # Restore stock
+    c.execute("UPDATE inventory SET stock = stock + ? WHERE id = ? AND branch_id = ?", (qty, item_id, branch_id))
+    
+    # Mark log as reverted and zero out its monetary impact
+    new_details = f"[REVERTIDO] {details}"
+    c.execute("UPDATE audit_logs SET details = ?, monetary_impact = 0.0 WHERE id = ?", (new_details, log_id))
+    
+    db.commit()
+    return RedirectResponse(url="/audit", status_code=303)
+
+
+@router.post("/audit/{log_id}/revert-restock", response_class=RedirectResponse)
+async def revert_restock_log(
+    log_id: int,
+    reason: str = Form(...),
+    user: dict = Depends(get_current_user),
+    db: sqlite3.Connection = Depends(get_db_conn)
+):
+    if user["role"] != "ADMIN" and user["role"] != "TECNICO":
+        raise HTTPException(status_code=403, detail="No autorizado")
+        
+    c = db.cursor()
+    c.execute("SELECT * FROM audit_logs WHERE id = ?", (log_id,))
+    log = c.fetchone()
+    if not log:
+        raise HTTPException(status_code=404, detail="Registro de auditoría no encontrado")
+        
+    if log["action"] != "RESTOCK":
+        raise HTTPException(status_code=400, detail="Solo se pueden revertir registros de tipo RESTOCK")
+        
+    details = log["details"] or ""
+    if details.startswith("[REVERTIDO]"):
+        raise HTTPException(status_code=400, detail="Este surtido ya fue revertido previamente")
+        
+    import re
+    match = re.search(r"Surtido:\s*\+(\d+)\s*uds", details)
+    if not match:
+        raise HTTPException(status_code=400, detail="No se pudo determinar la cantidad a revertir desde el registro")
+        
+    qty = int(match.group(1))
+    item_id = log["item_id"]
+    branch_id = log["branch_id"]
+    
+    # Check if item exists
+    c.execute("SELECT * FROM inventory WHERE id = ? AND branch_id = ?", (item_id, branch_id))
+    item = c.fetchone()
+    if not item:
+        raise HTTPException(status_code=404, detail="El componente asociado a este surtido ya no existe en el inventario")
+        
+    if item["stock"] < qty:
+        raise HTTPException(status_code=400, detail=f"Stock insuficiente para revertir (se requiere restar {qty} uds., stock actual es {item['stock']} uds.)")
+
+    # Subtract stock
+    c.execute("UPDATE inventory SET stock = stock - ? WHERE id = ? AND branch_id = ?", (qty, item_id, branch_id))
+    
+    # Mark log as reverted
+    new_details = f"[REVERTIDO - ERROR] {details} | Motivo: {reason}"
+    c.execute("UPDATE audit_logs SET details = ? WHERE id = ?", (new_details, log_id))
+    
+    # Insert new audit log for the correction
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    desc = f"Corrección de surtido erróneo (Ticket #{log_id}): -{qty} uds. Motivo: {reason}"
+    c.execute(
+        "INSERT INTO audit_logs (username, action, item_id, details, monetary_impact, date, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (user["username"], "CORRECCION_RESTOCK", item_id, desc, 0.0, now, branch_id)
+    )
+    
+    db.commit()
+    return RedirectResponse(url="/audit", status_code=303)
+
+

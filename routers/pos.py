@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends, HTTPException, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 import sqlite3
 from datetime import datetime
@@ -90,3 +90,51 @@ async def pos_receipt(request: Request, sale_id: int, user: dict = Depends(get_c
     items = c.fetchall()
     
     return templates.TemplateResponse("pos_receipt.html", {"request": request, "user": user, "sale": sale, "items": items})
+
+
+@router.post("/receipt/{sale_id}/revert", response_class=RedirectResponse)
+async def revert_pos_sale(
+    sale_id: int,
+    reason: str = Form(...),
+    user: dict = Depends(get_current_user),
+    db: sqlite3.Connection = Depends(get_db_conn)
+):
+    c = db.cursor()
+    c.execute("SELECT * FROM sales WHERE id = ? AND branch_id = ?", (sale_id, user["branch_id"]))
+    sale = c.fetchone()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Venta no encontrada.")
+        
+    status = sale["status"] or "COMPLETADA"
+    if status.startswith("REVERTIDA"):
+        raise HTTPException(status_code=400, detail="Esta venta ya fue revertida previamente.")
+        
+    # Get sale items
+    c.execute("SELECT * FROM sale_items WHERE sale_id = ?", (sale_id,))
+    items = c.fetchall()
+    
+    # Restore stock for each item
+    for item in items:
+        c.execute("UPDATE inventory SET stock = stock + ? WHERE id = ? AND branch_id = ?", (item["qty"], item["item_id"], user["branch_id"]))
+        
+    # Mark sale as reverted in database
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    revert_status = f"REVERTIDA por @{user['username']} el {now} | Motivo: {reason}"
+    c.execute("UPDATE sales SET status = ?, total = 0.0 WHERE id = ?", (revert_status, sale_id))
+    
+    # Cancel original audit logs of this sale (set monetary impact to 0.0 and prefix details with [REVERTIDO])
+    c.execute(
+        "UPDATE audit_logs SET action = 'VENTA_REVERTIDA', details = '[REVERTIDO] ' || details, monetary_impact = 0.0 WHERE details = ? AND action = 'VENTA_DIRECTA' AND branch_id = ?",
+        (f"Ticket #{sale_id}", user["branch_id"])
+    )
+    
+    # Add a new audit log entry for the reversion
+    desc = f"Venta #{sale_id} Revertida por @{user['username']}. Motivo: {reason}"
+    c.execute(
+        "INSERT INTO audit_logs (username, action, item_id, details, monetary_impact, date, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (user["username"], "REVERSION_VENTA", None, desc, 0.0, now, user["branch_id"])
+    )
+    
+    db.commit()
+    return RedirectResponse(url=f"/pos/receipt/{sale_id}", status_code=303)
+

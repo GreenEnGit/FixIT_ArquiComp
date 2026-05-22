@@ -12,37 +12,46 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
-                    <th class="p-4 font-bold">ID Cliente</th>
-                    <th class="p-4 font-bold">Nombre</th>
-                    <th class="p-4 font-bold">Contacto</th>
-                    <th class="p-4 font-bold">Dirección</th>
-                    <th class="p-4 font-bold text-center">Acciones</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 text-sm">
-                {% for c in customers %}
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="p-4 font-mono text-slate-400 font-bold">{{ c.id }}</td>
-                    <td class="p-4 font-bold text-slate-900">{{ c.name }}</td>
-                    <td class="p-4 text-slate-600">
-                        <div class="flex flex-col">
-                            <span>📞 {{ c.phone }}</span>
-                            {% if c.email %}<span class="text-xs text-slate-400">📧 {{ c.email }}</span>{% endif %}
-                        </div>
-                    </td>
-                    <td class="p-4 text-slate-500 text-xs">{{ c.address }}</td>
-                    <td class="p-4 text-center">
-                        <a href="/customer/{{ c.id }}" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-3 py-1.5 rounded text-xs transition-colors border border-blue-100 shadow-sm">Ver Perfil</a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="5" class="p-8 text-center text-slate-500">No hay clientes registrados aún.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
+                        <th class="p-4 font-bold">ID Cliente</th>
+                        <th class="p-4 font-bold">Nombre</th>
+                        <th class="p-4 font-bold">Contacto</th>
+                        <th class="p-4 font-bold">Dirección</th>
+                        <th class="p-4 font-bold text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-sm">
+                    {% for c in customers %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-4 font-mono text-slate-400 font-bold">{{ c.id }}</td>
+                        <td class="p-4 font-bold text-slate-900">{{ c.name }}</td>
+                        <td class="p-4 text-slate-600">
+                            <div class="flex flex-col">
+                                <span>📞 {{ c.phone }}</span>
+                                {% if c.email %}<span class="text-xs text-slate-400">📧 {{ c.email }}</span>{% endif %}
+                            </div>
+                        </td>
+                        <td class="p-4 text-slate-500 text-xs">{{ c.address }}</td>
+                        <td class="p-4 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <a href="/customer/{{ c.id }}" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-3 py-1.5 rounded text-xs transition-colors border border-blue-100 shadow-sm">Ver Perfil</a>
+                                {% if user.role == 'ADMIN' %}
+                                <form action="/customer/{{ c.id }}/delete" method="POST" onsubmit="return confirm('¿Estás seguro de eliminar a este cliente y todo su historial? Esto no se puede deshacer.');" class="inline-block">
+                                    <button type="submit" class="text-red-600 hover:text-red-800 font-bold bg-red-50 px-3 py-1.5 rounded text-xs transition-colors border border-red-100 shadow-sm">Eliminar</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="p-8 text-center text-slate-500">No hay clientes registrados aún.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Modal Nuevo Cliente -->
