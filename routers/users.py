@@ -4,14 +4,14 @@ import sqlite3
 from database import get_password_hash, verify_password
 from dependencies import templates, get_db_conn, get_current_user, SECRET_KEY, ALGORITHM
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter()
 
 @router.get("/users", response_class=HTMLResponse)
 async def list_users(request: Request, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
     if user["role"] != "ADMIN":
-        return HTMLResponse("Acceso denegado. Solo administradores.", status_code=403)
+        raise HTTPException(status_code=403, detail="Acceso denegado. Solo administradores.")
     c = db.cursor()
     c.execute("SELECT id, username, role, branch_id FROM users")
     users_list = c.fetchall()
@@ -67,18 +67,17 @@ async def update_profile(request: Request, username: str = Form(...), current_pa
             raise HTTPException(status_code=400, detail="Nombre de usuario ya en uso.")
         c.execute("UPDATE users SET username = ? WHERE id = ?", (username, user["id"]))
         # Regenerate JWT token with new sub claim
-        expire = datetime.utcnow() + timedelta(hours=12)
+        expire = datetime.now(timezone.utc) + timedelta(hours=12)
         payload = {"sub": username, "exp": expire}
         token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
         response = RedirectResponse(url="/profile", status_code=303)
-        response.set_cookie(key="session_token", value=token, httponly=True)
+        response.set_cookie(key="session_token", value=token, httponly=True, samesite="lax")
     else:
         response = RedirectResponse(url="/profile", status_code=303)
     # Update password if a new one is provided
     if new_password:
         new_hash = get_password_hash(new_password)
         c.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, user["id"]))
-    db.commit()
     # Audit log
     c.execute("INSERT INTO audit_logs (username, action, item_id, details, date, branch_id) VALUES (?, ?, ?, ?, ?, ?)",
               (user["username"], "ACTUALIZACION_PERFIL", str(user["id"]), f"Actualizó su perfil (username: {username})", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user["branch_id"]))
@@ -93,7 +92,9 @@ async def download_backup(user: dict = Depends(get_current_user)):
     db_path = "taller_prototipo.db"
     if not os.path.exists(db_path):
         raise HTTPException(status_code=404, detail="Database not found")
-    return Response(content=open(db_path, "rb").read(), media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename=FixIT_Backup_{os.path.basename(db_path)}"})
+    with open(db_path, "rb") as f:
+        content = f.read()
+    return Response(content=content, media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename=FixIT_Backup_{os.path.basename(db_path)}"})
 
 @router.post("/users/{user_id}/delete", response_class=RedirectResponse)
 async def delete_user(user_id: int, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -121,7 +122,7 @@ async def delete_user(user_id: int, user: dict = Depends(get_current_user), db: 
 @router.get("/audit", response_class=HTMLResponse)
 async def view_audit_logs(request: Request, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
     if user["role"] != "ADMIN":
-        return HTMLResponse("Acceso denegado. Solo administradores.", status_code=403)
+        raise HTTPException(status_code=403, detail="Acceso denegado. Solo administradores.")
     c = db.cursor()
     c.execute("""
         SELECT a.*, i.name as item_name 

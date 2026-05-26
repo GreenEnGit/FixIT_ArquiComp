@@ -1,10 +1,16 @@
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 import sqlite3
+import os
+import uuid
+import shutil
+import asyncio
+import logging
 from decimal import Decimal
 from datetime import datetime
-import asyncio
 from dependencies import templates, get_db_conn, get_current_user
+
+logger = logging.getLogger("fixit")
 
 router = APIRouter(prefix="/ticket")
 
@@ -13,9 +19,21 @@ TICKET_STATUSES = [
     "EN REPARACIÓN", "LISTO PARA ENTREGA", "ENTREGADO Y PAGADO"
 ]
 
-import os
-from dotenv import load_dotenv
-load_dotenv()
+
+def calculate_ticket_totals(parts_used, labor_cost, tax_rate):
+    """Calcula subtotal de partes, impuesto y total de un ticket.
+    Reutilizable en view_ticket, register_payment, generate_invoice."""
+    subtotal_parts = sum(Decimal(str(p["price"])) * p["qty"] for p in parts_used)
+    subtotal = Decimal(str(labor_cost)) + subtotal_parts
+    tax = (subtotal * Decimal(str(tax_rate))).quantize(Decimal('0.01'))
+    total = subtotal + tax
+    return {
+        "subtotal_parts": subtotal_parts,
+        "subtotal": subtotal,
+        "tax": tax,
+        "total": total,
+    }
+
 
 async def async_notif(phone: str, device: str):
     message_body = f"FixIT: Tu equipo {device} ya está LISTO PARA ENTREGA. ¡Te esperamos!"
@@ -33,13 +51,13 @@ async def async_notif(phone: str, device: str):
                 from_=from_phone,
                 to=phone
             )
-            print(f"\n[TWILIO REAL] 📱 SMS enviado a {phone}: SID {message.sid}\n")
+            logger.info(f"[TWILIO] 📱 SMS enviado a {phone}: SID {message.sid}")
             return
         except Exception as e:
-            print(f"\n[TWILIO ERROR] No se pudo enviar el mensaje: {e}\n")
+            logger.error(f"[TWILIO] No se pudo enviar el mensaje: {e}")
             
     await asyncio.sleep(2)
-    print(f"\n[TWILIO MOCK] 📱 SMS enviado a {phone}: '{message_body}'\n")
+    logger.info(f"[TWILIO MOCK] 📱 SMS simulado a {phone}: '{message_body}'")
 
 @router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
@@ -73,13 +91,11 @@ async def view_ticket(request: Request, ticket_id: str, user: dict = Depends(get
     c.execute("SELECT * FROM ticket_parts WHERE ticket_id = ?", (ticket_id,))
     parts_used = c.fetchall()
     
-    subtotal_parts = sum([Decimal(str(p["price"])) * p["qty"] for p in parts_used])
-    subtotal = Decimal(str(ticket["labor_cost"])) + subtotal_parts
-    
     c.execute("SELECT tax_rate FROM branches WHERE id = ?", (ticket["branch_id"],))
-    tax_rate = Decimal(str(c.fetchone()["tax_rate"]))
-    tax = (subtotal * tax_rate).quantize(Decimal('0.01'))
-    total = subtotal + tax
+    totals = calculate_ticket_totals(parts_used, ticket["labor_cost"], c.fetchone()["tax_rate"])
+    subtotal_parts = totals["subtotal_parts"]
+    tax = totals["tax"]
+    total = totals["total"]
     
     c.execute("SELECT * FROM payments WHERE ticket_id = ?", (ticket_id,))
     payments = c.fetchall()
@@ -126,7 +142,7 @@ async def change_ticket_status(ticket_id: str, background_tasks: BackgroundTasks
     
     c.execute("UPDATE tickets SET status = ? WHERE id = ?", (status, ticket_id))
     c.execute("INSERT INTO activities (ticket_id, action, time, branch_id) VALUES (?, ?, ?, ?)",
-              (ticket_id, f"Cambió a {status}", "Justo ahora", ticket["branch_id"]))
+              (ticket_id, f"Cambió a {status}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ticket["branch_id"]))
     db.commit()
     
     if status == "LISTO PARA ENTREGA":
@@ -139,6 +155,9 @@ async def change_ticket_status(ticket_id: str, background_tasks: BackgroundTasks
 
 @router.post("/{ticket_id}/pay", response_class=RedirectResponse)
 async def register_payment(ticket_id: str, amount: float = Form(...), method: str = Form(...), payment_image: UploadFile = File(None), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="El monto del pago debe ser mayor a 0.")
+        
     c = db.cursor()
     c.execute("SELECT * FROM tickets WHERE id = ? AND branch_id = ?", (ticket_id, user["branch_id"]))
     ticket = c.fetchone()
@@ -147,11 +166,9 @@ async def register_payment(ticket_id: str, amount: float = Form(...), method: st
     
     c.execute("SELECT * FROM ticket_parts WHERE ticket_id = ?", (ticket_id,))
     parts_used = c.fetchall()
-    subtotal_parts = sum([Decimal(str(p["price"])) * p["qty"] for p in parts_used])
-    subtotal = Decimal(str(ticket["labor_cost"])) + subtotal_parts
     c.execute("SELECT tax_rate FROM branches WHERE id = ?", (ticket["branch_id"],))
-    tax_rate = Decimal(str(c.fetchone()["tax_rate"]))
-    total = subtotal + (subtotal * tax_rate).quantize(Decimal('0.01'))
+    totals = calculate_ticket_totals(parts_used, ticket["labor_cost"], c.fetchone()["tax_rate"])
+    total = totals["total"]
     
     c.execute("SELECT SUM(amount) FROM payments WHERE ticket_id = ?", (ticket_id,))
     total_paid_raw = c.fetchone()[0] or 0
@@ -168,11 +185,8 @@ async def register_payment(ticket_id: str, amount: float = Form(...), method: st
               
     # Guardar imagen si se subió
     if payment_image and payment_image.filename:
-        import shutil
-        import uuid
-        import os
-        ext = payment_image.filename.split('.')[-1]
-        file_name = f"pay_{ticket_id}_{uuid.uuid4().hex[:8]}.{ext}"
+        ext = os.path.splitext(payment_image.filename)[1]
+        file_name = f"pay_{ticket_id}_{uuid.uuid4().hex[:8]}{ext}"
         os.makedirs("static/uploads", exist_ok=True)
         file_path = f"static/uploads/{file_name}"
         with open(file_path, "wb") as buffer:
@@ -186,23 +200,26 @@ async def register_payment(ticket_id: str, amount: float = Form(...), method: st
         c.execute("UPDATE tickets SET status = 'ENTREGADO Y PAGADO' WHERE id = ?", (ticket_id,))
         c.execute("INSERT INTO warranties (ticket_id, start_date, end_date) VALUES (?, date('now'), date('now', '+30 days'))", (ticket_id,))
         c.execute("INSERT INTO activities (ticket_id, action, time, branch_id) VALUES (?, ?, ?, ?)",
-                  (ticket_id, "Pago total recibido, Equipo entregado, Garantía Activa", "Justo ahora", ticket["branch_id"]))
+                  (ticket_id, "Pago total recibido, Equipo entregado, Garantía Activa", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ticket["branch_id"]))
     else:
         c.execute("INSERT INTO activities (ticket_id, action, time, branch_id) VALUES (?, ?, ?, ?)",
-                  (ticket_id, f"Abono parcial de ${amount} ({method})", "Justo ahora", ticket["branch_id"]))
+                  (ticket_id, f"Abono parcial de ${amount} ({method})", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ticket["branch_id"]))
                   
     db.commit()
     return RedirectResponse(url=f"/ticket/{ticket_id}", status_code=303)
 
 @router.post("/{ticket_id}/labor_cost", response_class=RedirectResponse)
 async def update_labor_cost(ticket_id: str, labor_cost: float = Form(...), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
+    if labor_cost < 0:
+        raise HTTPException(status_code=400, detail="El costo de mano de obra no puede ser negativo.")
+        
     c = db.cursor()
     c.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,))
     ticket = c.fetchone()
     if ticket and ticket["status"] != "ENTREGADO Y PAGADO":
         c.execute("UPDATE tickets SET labor_cost = ? WHERE id = ?", (labor_cost, ticket_id))
         c.execute("INSERT INTO activities (ticket_id, action, time, branch_id) VALUES (?, ?, ?, ?)",
-                  (ticket_id, f"Actualizó mano de obra a ${labor_cost}", "Justo ahora", ticket["branch_id"]))
+                  (ticket_id, f"Actualizó mano de obra a ${labor_cost}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ticket["branch_id"]))
         db.commit()
     return RedirectResponse(url=f"/ticket/{ticket_id}", status_code=303)
 
@@ -226,7 +243,7 @@ async def add_part_to_ticket(ticket_id: str, part_id: str = Form(...), user: dic
             
             c.execute("UPDATE inventory SET stock = stock - 1 WHERE id = ?", (part_id,))
             c.execute("INSERT INTO activities (ticket_id, action, time, branch_id) VALUES (?, ?, ?, ?)",
-                      (ticket_id, f"Agregó refacción: {part['name']}", "Justo ahora", ticket["branch_id"]))
+                      (ticket_id, f"Agregó refacción: {part['name']}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ticket["branch_id"]))
             db.commit()
             
     return RedirectResponse(url=f"/ticket/{ticket_id}", status_code=303)
@@ -248,7 +265,7 @@ async def remove_part_from_ticket(ticket_id: str, part_id: str, user: dict=Depen
             
             c.execute("UPDATE inventory SET stock = stock + 1 WHERE id = ?", (part_id,))
             c.execute("INSERT INTO activities (ticket_id, action, time, branch_id) VALUES (?, ?, ?, ?)",
-                      (ticket_id, f"Removió refacción: {existing['name']}", "Justo ahora", ticket["branch_id"]))
+                      (ticket_id, f"Removió refacción: {existing['name']}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ticket["branch_id"]))
             db.commit()
             
     return RedirectResponse(url=f"/ticket/{ticket_id}", status_code=303)
@@ -270,13 +287,13 @@ async def generate_invoice(request: Request, ticket_id: str, db: sqlite3.Connect
     c.execute("SELECT * FROM ticket_parts WHERE ticket_id = ?", (ticket_id,))
     parts_used = c.fetchall()
     
-    subtotal_parts = sum([Decimal(str(p["price"])) * p["qty"] for p in parts_used])
-    subtotal = Decimal(str(ticket["labor_cost"])) + subtotal_parts
+    subtotal_parts = sum(Decimal(str(p["price"])) * p["qty"] for p in parts_used)
     
     c.execute("SELECT tax_rate FROM branches WHERE id = ?", (ticket["branch_id"],))
-    tax_rate = Decimal(str(c.fetchone()["tax_rate"]))
-    tax = (subtotal * tax_rate).quantize(Decimal('0.01'))
-    total = subtotal + tax
+    totals = calculate_ticket_totals(parts_used, ticket["labor_cost"], c.fetchone()["tax_rate"])
+    subtotal_parts = totals["subtotal_parts"]
+    tax = totals["tax"]
+    total = totals["total"]
     
     t_dict = dict(ticket)
     t_dict["parts_used"] = [dict(p) for p in parts_used]

@@ -39,3 +39,10 @@ htmlcov/
 *.pdf
 pdf_clean.txt
 pdf_text.txt
+
+# Scripts de desarrollo/debug (no son parte del sistema)
+scratch_*.py
+read_pdf.py
+
+# Archivos subidos por usuarios (generados en runtime)
+static/uploads/

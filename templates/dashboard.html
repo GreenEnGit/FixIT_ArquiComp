@@ -39,6 +39,45 @@
         {% endif %}
     </div>
 
+    <!-- ===== Sección de Gráficas ===== -->
+    <div class="grid grid-cols-1 {% if user.role == 'ADMIN' %}lg:grid-cols-3{% else %}lg:grid-cols-2{% endif %} gap-8 mb-8">
+        
+        <!-- Gráfica 1: Distribución de Tickets por Estatus -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
+            <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                Tickets por Estatus
+            </h2>
+            <div class="flex-1 flex items-center justify-center" style="min-height: 220px;">
+                <canvas id="chartTicketStatus"></canvas>
+            </div>
+        </div>
+
+        <!-- Gráfica 2: Top 5 Componentes con Menor Stock -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
+            <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                Componentes con Menor Stock
+            </h2>
+            <div class="flex-1 flex items-center justify-center" style="min-height: 220px;">
+                <canvas id="chartLowStock"></canvas>
+            </div>
+        </div>
+
+        <!-- Gráfica 3: Composición de Ingresos (Solo ADMIN) -->
+        {% if user.role == 'ADMIN' %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
+            <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                Composición de Ingresos
+            </h2>
+            <div class="flex-1 flex items-center justify-center" style="min-height: 220px;">
+                <canvas id="chartRevenue"></canvas>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         <!-- Alertas de Stock Bajo (Solo ADMIN) -->
@@ -97,4 +136,143 @@
         </div>
     </div>
 </div>
+
+<!-- Scripts de Gráficas -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const statusColors = {
+        'RECIBIDO': '#3b82f6',
+        'EN DIAGNÓSTICO': '#f59e0b',
+        'EN REPARACIÓN': '#8b5cf6',
+        'LISTO PARA ENTREGA': '#10b981',
+        'ENTREGADO Y PAGADO': '#06b6d4'
+    };
+
+    // --- Gráfica 1: Tickets por Estatus (Dona) ---
+    const statusLabels = {{ chart_status_labels | tojson }};
+    const statusValues = {{ chart_status_values | tojson }};
+    const statusBgColors = statusLabels.map(l => statusColors[l] || '#94a3b8');
+
+    if (document.getElementById('chartTicketStatus')) {
+        new Chart(document.getElementById('chartTicketStatus'), {
+            type: 'doughnut',
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    data: statusValues,
+                    backgroundColor: statusBgColors,
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 12,
+                            usePointStyle: true,
+                            pointStyleWidth: 8,
+                            font: { size: 11, family: 'Inter' }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // --- Gráfica 2: Top 5 Menor Stock (Barras Horizontales) ---
+    const stockLabels = {{ chart_stock_labels | tojson }};
+    const stockValues = {{ chart_stock_values | tojson }};
+    const stockBarColors = stockValues.map(v => v === 0 ? '#ef4444' : v <= 2 ? '#f97316' : '#f59e0b');
+
+    if (document.getElementById('chartLowStock')) {
+        new Chart(document.getElementById('chartLowStock'), {
+            type: 'bar',
+            data: {
+                labels: stockLabels,
+                datasets: [{
+                    label: 'Unidades',
+                    data: stockValues,
+                    backgroundColor: stockBarColors,
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    barThickness: 22
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, font: { size: 11, family: 'Inter' } },
+                        grid: { color: '#f1f5f9' }
+                    },
+                    y: {
+                        ticks: { font: { size: 11, family: 'Inter' } },
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+
+    // --- Gráfica 3: Composición de Ingresos (Dona, solo Admin) ---
+    {% if user.role == 'ADMIN' %}
+    const revLabels = {{ chart_revenue_labels | tojson }};
+    const revValues = {{ chart_revenue_values | tojson }};
+    const revColors = ['#6366f1', '#3b82f6', '#10b981'];
+
+    if (document.getElementById('chartRevenue')) {
+        new Chart(document.getElementById('chartRevenue'), {
+            type: 'doughnut',
+            data: {
+                labels: revLabels,
+                datasets: [{
+                    data: revValues,
+                    backgroundColor: revColors,
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 12,
+                            usePointStyle: true,
+                            pointStyleWidth: 8,
+                            font: { size: 11, family: 'Inter' }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                let val = ctx.parsed || 0;
+                                return ' $' + val.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+});
+</script>
 {% endblock %}
+

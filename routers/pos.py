@@ -32,6 +32,9 @@ async def checkout_cart(payload: CheckoutRequest, user: dict = Depends(get_curre
     # Validar stock y calcular total
     cart_data = []
     for item in payload.items:
+        if item.qty <= 0:
+            raise HTTPException(status_code=400, detail="La cantidad de un artículo debe ser mayor a 0.")
+            
         c.execute("SELECT * FROM inventory WHERE id = ? AND branch_id = ?", (item.id, user["branch_id"]))
         db_item = c.fetchone()
         if not db_item:

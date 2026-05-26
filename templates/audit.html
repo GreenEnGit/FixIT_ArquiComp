@@ -52,7 +52,7 @@
                                 </form>
                                 {% endif %}
                                 {% if log.action == 'RESTOCK' and not log.details.startswith('[REVERTIDO]') %}
-                                <button onclick="revertRestock({{ log.id }}, '{{ (log.item_name or log.item_id)|replace(\"'\", \"\\'\") }}')" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-800 rounded border border-blue-200 text-[10px] font-bold transition-all whitespace-nowrap">
+                                <button onclick='revertRestock({{ log.id }}, {{ (log.item_name or log.item_id)|tojson }})' class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-800 rounded border border-blue-200 text-[10px] font-bold transition-all whitespace-nowrap">
                                     ↩️ Revertir Surtido
                                 </button>
                                 {% endif %}

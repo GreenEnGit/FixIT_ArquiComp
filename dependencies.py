@@ -1,5 +1,6 @@
 import sqlite3
 import jwt
+import logging
 from fastapi import Request, HTTPException, Cookie, Depends
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
@@ -9,7 +10,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "super_secret_key_fixit_for_production_v2_2026")
+logger = logging.getLogger("fixit")
+
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+if not SECRET_KEY:
+    SECRET_KEY = "dev_default_key_change_in_production_fixit_2026"
+    logger.warning("⚠️  SECRET_KEY no está configurada en .env. Usando clave por defecto (NO USAR EN PRODUCCIÓN).")
 ALGORITHM = "HS256"
 
 templates = Jinja2Templates(directory="templates")
@@ -33,7 +39,7 @@ def get_current_user_optional(session_token: str = Cookie(default=None), db: sql
             user = c.fetchone()
             if user:
                 return dict(user)
-    except:
+    except (jwt.DecodeError, jwt.ExpiredSignatureError, jwt.InvalidTokenError, KeyError):
         return None
     return None
 

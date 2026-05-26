@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Form, Depends, HTTPException, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import sqlite3
 import database
 from dependencies import templates, get_db_conn, SECRET_KEY, ALGORITHM
@@ -20,12 +20,12 @@ async def login(request: Request, username: str = Form(...), password: str = For
     
     if user and database.verify_password(password, user["password_hash"]):
         # Create token
-        expire = datetime.utcnow() + timedelta(hours=12)
+        expire = datetime.now(timezone.utc) + timedelta(hours=12)
         payload = {"sub": user["username"], "exp": expire}
         token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
         
         response = RedirectResponse(url="/", status_code=303)
-        response.set_cookie(key="session_token", value=token, httponly=True)
+        response.set_cookie(key="session_token", value=token, httponly=True, samesite="lax")
         return response
     
     return templates.TemplateResponse("login.html", {"request": request, "error": "Credenciales inválidas"})

@@ -225,11 +225,17 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tickets_customer ON tickets(customer_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_ticket_parts_ticket ON ticket_parts(ticket_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_inventory_branch ON inventory(branch_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_logs_branch_date ON audit_logs(branch_id, date)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tickets_date ON tickets(date)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_payments_ticket ON payments(ticket_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_activities_ticket ON activities(ticket_id)")
 
     conn.commit()
 
     if not db_exists:
-        print("Creando base de datos y aplicando Seed Data inicial v2...")
+        import logging
+        logging.getLogger("fixit").info("Creando base de datos y aplicando Seed Data inicial v2...")
         _seed_data(conn)
 
     conn.close()

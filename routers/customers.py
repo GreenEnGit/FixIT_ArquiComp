@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Request, Depends, Form
+from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 import sqlite3
+import uuid
+from datetime import datetime
 from decimal import Decimal
 from dependencies import templates, get_db_conn, get_current_user
 
@@ -16,7 +18,6 @@ async def list_customers(request: Request, user: dict = Depends(get_current_user
 @router.post("/customers/new", response_class=RedirectResponse)
 async def add_customer(request: Request, name: str = Form(...), phone: str = Form(...), email: str = Form(""), address: str = Form(""), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
     c = db.cursor()
-    import uuid
     c_id = f"CUST-{uuid.uuid4().hex[:8].upper()}"
     c.execute("INSERT INTO customers (id, name, phone, email, address) VALUES (?, ?, ?, ?, ?)",
               (c_id, name, phone, email, address))
@@ -44,7 +45,6 @@ async def view_customer(request: Request, customer_id: str, user: dict = Depends
     customer = c.fetchone()
     
     if not customer:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="El perfil del cliente que buscas fue eliminado o no existe.")
     c.execute("""
         SELECT t.*, d.device_str 
@@ -81,7 +81,6 @@ async def tracking_portal(request: Request, ticket_id: str, db: sqlite3.Connecti
     """, (ticket_id,))
     ticket = c.fetchone()
     if not ticket:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Orden no encontrada")
         
     c.execute("SELECT * FROM warranties WHERE ticket_id = ?", (ticket_id,))
@@ -109,10 +108,20 @@ async def tracking_portal(request: Request, ticket_id: str, db: sqlite3.Connecti
         "balance_due": balance_due
     })
 
+@router.post("/customer/{customer_id}/edit", response_class=RedirectResponse)
+async def edit_customer(customer_id: str, name: str = Form(...), phone: str = Form(...), email: str = Form(""), address: str = Form(""), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
+    c = db.cursor()
+    c.execute("SELECT id FROM customers WHERE id = ?", (customer_id,))
+    if not c.fetchone():
+        raise HTTPException(status_code=404, detail="Cliente no encontrado.")
+    
+    c.execute("UPDATE customers SET name = ?, phone = ?, email = ?, address = ? WHERE id = ?",
+              (name.strip(), phone.strip(), email.strip(), address.strip(), customer_id))
+    db.commit()
+    return RedirectResponse(url=f"/customer/{customer_id}", status_code=303)
+
 @router.post("/customer/{customer_id}/delete", response_class=RedirectResponse)
 async def delete_customer(customer_id: str, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
-    from fastapi import HTTPException
-    from datetime import datetime
     if user["role"] != "ADMIN":
         raise HTTPException(status_code=403, detail="Solo los administradores pueden eliminar clientes.")
     
