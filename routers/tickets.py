@@ -170,8 +170,8 @@ async def register_payment(ticket_id: str, amount: float = Form(...), method: st
     totals = calculate_ticket_totals(parts_used, ticket["labor_cost"], c.fetchone()["tax_rate"])
     total = totals["total"]
     
-    c.execute("SELECT SUM(amount) FROM payments WHERE ticket_id = ?", (ticket_id,))
-    total_paid_raw = c.fetchone()[0] or 0
+    c.execute("SELECT SUM(amount) AS total FROM payments WHERE ticket_id = ?", (ticket_id,))
+    total_paid_raw = c.fetchone()["total"] or 0
     total_paid = Decimal(str(total_paid_raw)).quantize(Decimal('0.01'))
     total = total.quantize(Decimal('0.01'))
     
@@ -198,7 +198,7 @@ async def register_payment(ticket_id: str, amount: float = Form(...), method: st
     
     if total_paid >= total:
         c.execute("UPDATE tickets SET status = 'ENTREGADO Y PAGADO' WHERE id = ?", (ticket_id,))
-        c.execute("INSERT INTO warranties (ticket_id, start_date, end_date) VALUES (?, date('now'), date('now', '+30 days'))", (ticket_id,))
+        c.execute("INSERT INTO warranties (ticket_id, start_date, end_date) VALUES (?, CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days')", (ticket_id,))
         c.execute("INSERT INTO activities (ticket_id, action, time, branch_id) VALUES (?, ?, ?, ?)",
                   (ticket_id, "Pago total recibido, Equipo entregado, Garantía Activa", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ticket["branch_id"]))
     else:
@@ -327,7 +327,7 @@ async def delete_ticket(ticket_id: str, user: dict = Depends(get_current_user), 
         
     c.execute("SELECT end_date FROM warranties WHERE ticket_id = ?", (ticket_id,))
     warranty = c.fetchone()
-    if warranty and warranty["end_date"] >= datetime.now().strftime("%Y-%m-%d"):
+    if warranty and warranty["end_date"] >= datetime.now().date():
         raise HTTPException(status_code=400, detail="No se puede eliminar este ticket porque tiene una garantía en curso.")
         
     # Manual cascade delete

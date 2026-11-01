@@ -82,9 +82,9 @@ async def deduct_stock(item_id: str, action: str = Form(...), details: str = For
             desc = details
             
         # Audit Log
-        c.execute("INSERT INTO audit_logs (username, action, item_id, details, monetary_impact, date, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        c.execute("INSERT INTO audit_logs (username, action, item_id, details, monetary_impact, date, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
                   (user["username"], action, item_id, desc, impact, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user["branch_id"]))
-        log_id = c.lastrowid
+        log_id = c.fetchone()["id"]
         db.commit()
         
         if action == "VENTA_DIRECTA":

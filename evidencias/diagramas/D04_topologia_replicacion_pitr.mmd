@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant App as FastAPI FixIT (psycopg 3.2.2)
+    participant Master as fixit_pg_master (:5432)
+    participant WAL as Archivo WAL (/wal_archive)
+    participant Replica as fixit_pg_replica (:5433)
+    participant Backup as ./backups (pg_dump & pg_basebackup)
+
+    App->>Master: COMMIT Transacción (INSERT payment / UPDATE ticket)
+    Master->>Master: Escribe en pg_wal (Write-Ahead Log)
+    par Espejeo y Streaming Replication (U5.1 y U5.2)
+        Master->>Replica: Stream WAL continuo (wal_sender -> wal_receiver)
+        Replica->>Replica: Aplica bloques en Hot Standby (Read-Only)
+    and Archivado y Respaldo (U5.3 y U5.4)
+        Master->>WAL: archive_command copia segmento WAL cerrado
+        Master->>Backup: backup_job.sh genera basebackup + dump lógico
+    end
+    Note over Master,WAL: Ante desastre (DROP/DELETE), restore_pitr.sh restaura basebackup y reproduce WAL hasta T_safe
