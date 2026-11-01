@@ -7,7 +7,7 @@ Recapitulación de las 12 tareas (T-01 a T-12) ejecutadas sobre `FixIT_ArquiComp
 - `infra/scripts/init_env.sh` + `infra/compose.yaml` + `infra/config/{postgresql.conf,pg_hba.conf}`: levantan `fixit_pg_master` (PostgreSQL 16.4) en Podman 4.9.3 rootless.
 - `src/sql/01_tablespaces.sql`: los 4 tablespaces (`ts_catalogos`, `ts_transaccional`, `ts_auditoria`, `ts_indices`).
 - `src/sql/02_schema.sql`: las 19 tablas de `database.py` migradas 1:1, distribuidas por tablespace, con todos los índices PK/UNIQUE en `ts_indices`.
-- `src/sql/03_roles_and_quotas.sql`: roles RBAC (`rol_dba`, `rol_tecnico`, `rol_recepcion`, `rol_auditor`, `rol_replicacion`) y el trigger `trg_enforce_user_quota`.
+- `src/sql/03_roles_and_quotas.sh`: roles RBAC (`rol_dba`, `rol_tecnico`, `rol_recepcion`, `rol_auditor`, `rol_replicacion`) y el trigger `trg_enforce_user_quota`.
 - Bug corregido en el camino: dentro de Podman rootless, el sufijo `:U` de un bind mount chownea al UID del *proceso raíz* del contenedor (root), no al usuario interno `postgres` (999); se resolvió con `podman unshare chown 999:999` desde los scripts.
 
 ## T-05 a T-07 — Migración del motor de la app y mantenimiento
