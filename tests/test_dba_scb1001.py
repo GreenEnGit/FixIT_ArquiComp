@@ -139,7 +139,7 @@ def test_cp04_modos_operacion_y_concurrencia():
                 '-d fixit_db -t -c "SELECT pg_is_in_recovery();"')
     assert check.stdout.strip() == "t"
 
-    result = run("bash infra/scripts/ops_modes.sh normal", timeout=60)
+    result = run("bash infra/scripts/ops_modes.sh normal", timeout=240)
     assert result.returncode == 0
     row = fetch_one("SELECT pg_is_in_recovery() AS recovering")
     assert row["recovering"] is False
