@@ -1,0 +1,35 @@
+graph TB
+    subgraph VM["VM Linux Mint 22 — Podman 4.9.3 / Python 3.12.3"]
+        subgraph AppLayer["Capa de Aplicación FixIT_ArquiComp y Evidencias"]
+            FastAPI["FastAPI 0.115.0 (main.py + routers)\nPool psycopg 3.2.2"]
+            ETL["migrate_sqlite_to_pg.py\n& Faker 30.1.0 (seed_workload.py)"]
+            Capturer["Playwright 1.48.0 + mmdc 11.2.0\n(capture_evidence.py -> evidencias/*.png)"]
+            SQLiteDB[("taller_prototipo.db\nSQLite 3.45.1 (Origen U5.T5.S5)")]
+        end
+
+        subgraph PodmanNet["Red Podman: fixit_dba_net"]
+            subgraph Master["Contenedor: fixit_pg_master (PostgreSQL 16.4 — Puerto 5432)"]
+                PGMem["Memoria: shared_buffers=256MB | work_mem=16MB | wal_buffers=16MB\nProcesos: checkpointer, bgwriter, walwriter, autovacuum, stats collector"]
+                TS1[("ts_catalogos")]
+                TS2[("ts_transaccional")]
+                TS3[("ts_auditoria")]
+                TS4[("ts_indices")]
+                WAL[("pg_wal & wal_archive")]
+            end
+
+            subgraph Replica["Contenedor: fixit_pg_replica (PostgreSQL 16.4 Standby — Puerto 5433)"]
+                RepProc["Procesos: walreceiver & startup (Hot Standby Read-Only)"]
+                RepDisk[("Espejo Físico de Tablespaces")]
+            end
+        end
+
+        Backups[("Volumen Host: ./backups\npg_dump (.dump) & pg_basebackup (.tar.gz)")]
+    end
+
+    SQLiteDB -->|Extracción ETL| ETL
+    ETL -->|Carga Transaccional| Master
+    FastAPI -->|Lectura/Escritura ACID :5432| Master
+    FastAPI -.->|Lectura Reportes :5433| Replica
+    Master ==>|Streaming Replication WAL| Replica
+    WAL ==>|Archivado Continuo / PITR| Backups
+    Capturer -.->|Captura Web :8000 y Terminal :5432| FastAPI

@@ -41,7 +41,10 @@ TABLES = [
     ("ticket_images", True),
     ("sales", True),
     ("sale_items", True),
-    ("audit_logs", True),
+    # audit_logs NO se incluye: es una bitacora nativa de PostgreSQL (triggers
+    # de src/sql/05_audit_and_monitoring.sql + inserts de la app), no una
+    # tabla con datos de origen en taller_prototipo.db. Truncarla o comparar
+    # su conteo contra SQLite no tiene sentido (en SQLite siempre esta vacia).
 ]
 
 

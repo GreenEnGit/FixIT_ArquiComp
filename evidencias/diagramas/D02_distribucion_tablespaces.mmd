@@ -1,0 +1,6 @@
+graph LR
+    DB[("Base de Datos: fixit_db\n(PostgreSQL 16.4)")]
+    DB --> TS_CAT["Tablespace: ts_catalogos\n/var/lib/postgresql/tablespaces/ts_catalogos\nTablas: branches, users, customers,\ncustomer_devices, suppliers, categories,\nservice_catalog, kb_articles,\nwarranty_policies, system_settings"]
+    DB --> TS_TRX["Tablespace: ts_transaccional\n/var/lib/postgresql/tablespaces/ts_transaccional\nTablas: tickets, ticket_parts,\nticket_status_history, inventory,\ninventory_movements, purchase_orders,\npurchase_order_items, payments,\ncash_register_sessions, warranties"]
+    DB --> TS_AUD["Tablespace: ts_auditoria\n/var/lib/postgresql/tablespaces/ts_auditoria\nTablas: audit_logs,\nuser_disk_quotas, backup_history"]
+    DB --> TS_IDX["Tablespace: ts_indices\n/var/lib/postgresql/tablespaces/ts_indices\nObjetos: Todos los índices B-Tree\nsecundarios del esquema public"]
