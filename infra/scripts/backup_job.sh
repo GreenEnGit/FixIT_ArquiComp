@@ -8,12 +8,19 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INFRA_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 BACKUP_DIR="$PROJECT_DIR/backups"
 mkdir -p "$BACKUP_DIR"
 
+set -a
+source "$INFRA_DIR/.env"
+set +a
+: "${ADMIN_SYS_PASSWORD:?Falta ADMIN_SYS_PASSWORD en infra/.env}"
+: "${REPLICATOR_PASSWORD:?Falta REPLICATOR_PASSWORD en infra/.env}"
+
 TS="$(date +%Y%m%d_%H%M%S)"
-export PGPASSWORD="Admin_SCB1001!"
+export PGPASSWORD="$ADMIN_SYS_PASSWORD"
 
 echo "== Respaldo logico (pg_dump, formato custom) =="
 pg_dump -h localhost -p 5432 -U admin_sys -d fixit_db -F c \
@@ -26,7 +33,7 @@ PHYS_DIR="$BACKUP_DIR/basebackup_$TS"
 mkdir -p "$PHYS_DIR"
 # pg_basebackup requiere una conexion tipo "replication"; pg_hba.conf solo
 # la autoriza para el rol replicator (admin_sys solo tiene acceso normal).
-PGPASSWORD="Replicator_SCB1001!" pg_basebackup -h localhost -p 5432 -U replicator \
+PGPASSWORD="$REPLICATOR_PASSWORD" pg_basebackup -h localhost -p 5432 -U replicator \
   -D "$PHYS_DIR/base" \
   -T "/var/lib/postgresql/tablespaces/ts_catalogos=$PHYS_DIR/ts_catalogos" \
   -T "/var/lib/postgresql/tablespaces/ts_transaccional=$PHYS_DIR/ts_transaccional" \

@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 import pytest
+from dotenv import dotenv_values
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_DIR))
@@ -18,6 +19,11 @@ sys.path.insert(0, str(PROJECT_DIR))
 import database  # noqa: E402
 
 EVID_DIR = PROJECT_DIR / "evidencias"
+
+# Contraseñas operativas: se leen de infra/.env (gitignored, generado por
+# init_env.sh), nunca hardcodeadas aqui.
+_INFRA_ENV = dotenv_values(PROJECT_DIR / "infra" / ".env")
+APP_TECNICO_PASSWORD = _INFRA_ENV["APP_TECNICO_PASSWORD"]
 
 
 def run(cmd, timeout=180):
@@ -105,7 +111,7 @@ def test_cp03_cuota_y_rbac():
             "WHERE role_name = 'app_tecnico'")
     try:
         result = run(
-            'PGPASSWORD=Tecnico_SCB1001! podman exec -e PGPASSWORD -i fixit_pg_master '
+            f'PGPASSWORD={APP_TECNICO_PASSWORD} podman exec -e PGPASSWORD -i fixit_pg_master '
             'psql -h 127.0.0.1 -U app_tecnico -d fixit_db -c '
             '"INSERT INTO tickets (id, status, customer_id, device_id, symptom, date, branch_id) '
             "VALUES ('REP-CP03TEST', 'RECIBIDO', 'CUST-01', 'DEV-001', 'cp03', CURRENT_DATE, 'NORTE');\""
@@ -116,7 +122,7 @@ def test_cp03_cuota_y_rbac():
                 "WHERE role_name = 'app_tecnico'")
 
     result = run(
-        'PGPASSWORD=Tecnico_SCB1001! podman exec -e PGPASSWORD -i fixit_pg_master '
+        f'PGPASSWORD={APP_TECNICO_PASSWORD} podman exec -e PGPASSWORD -i fixit_pg_master '
         'psql -h 127.0.0.1 -U app_tecnico -d fixit_db -c "DELETE FROM payments WHERE id = 1;"'
     )
     assert "permission denied" in (result.stdout + result.stderr)
@@ -198,7 +204,7 @@ def test_cp06_streaming_replication():
     # recovery/normal; se reclona la replica para no depender de ese orden.
     row = fetch_one("SELECT state FROM pg_stat_replication LIMIT 1")
     if row is None or row["state"] != "streaming":
-        result = run("bash infra/scripts/setup_replication.sh", timeout=120)
+        result = run("bash infra/scripts/setup_replication.sh", timeout=240)
         assert result.returncode == 0
         time.sleep(2)
         row = fetch_one("SELECT state FROM pg_stat_replication LIMIT 1")
@@ -247,7 +253,7 @@ def test_cp07_backup_y_pitr():
     assert [dict(r) for r in restored] == [dict(r) for r in original]
 
     # El PITR invalida la timeline de la replica: se reclona para dejar el cluster consistente.
-    run("bash infra/scripts/setup_replication.sh", timeout=120)
+    run("bash infra/scripts/setup_replication.sh", timeout=240)
 
 
 # =====================================================================

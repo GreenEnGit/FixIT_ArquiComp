@@ -51,9 +51,11 @@ for d in pgdata wal_archive tablespaces/ts_catalogos tablespaces/ts_transacciona
   podman unshare chown 999:999 "$INFRA_DIR/volumes/$d"
   echo "[OK] $INFRA_DIR/volumes/$d (0700, uid/gid 999 postgres)"
 done
+# backups/ ya NO se monta en el contenedor (pg_dump/pg_basebackup corren
+# desde el host en backup_job.sh/restore_pitr.sh): permanece como
+# directorio normal del usuario del host, sin el truco de uid 999.
 mkdir -p "$PROJECT_DIR/backups"
-chmod 700 "$PROJECT_DIR/backups"
-podman unshare chown 999:999 "$PROJECT_DIR/backups"
+chmod 755 "$PROJECT_DIR/backups"
 echo "[OK] $PROJECT_DIR/backups"
 
 echo ""
@@ -65,13 +67,43 @@ else
   echo "[OK] $INFRA_DIR/.env ya existe"
 fi
 
+# Genera una contraseña aleatoria unica por instalacion para cada variable
+# que haya quedado en CHANGE_ME (nunca se commitea una contraseña real).
+generate_password() {
+  openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 24
+}
+
+while IFS='=' read -r key value; do
+  [[ "$key" =~ ^[A-Z_]+$ ]] || continue
+  if [[ "$value" == "CHANGE_ME" ]]; then
+    newpass="$(generate_password)"
+    sed -i "s/^${key}=CHANGE_ME$/${key}=${newpass}/" "$INFRA_DIR/.env"
+    echo "[OK] Generada contraseña aleatoria para $key"
+  fi
+done < "$INFRA_DIR/.env"
+
 set -a
 source "$INFRA_DIR/.env"
 set +a
 
+# El .env de la app (raiz) debe autenticar admin_sys con la MISMA
+# contraseña que se acaba de generar/fijar en infra/.env; se sincroniza
+# automaticamente para que la instalacion sea reproducible sin pasos
+# manuales adicionales.
+if [[ ! -f "$PROJECT_DIR/.env" ]]; then
+  cp "$PROJECT_DIR/.env.example" "$PROJECT_DIR/.env"
+  echo "[OK] Creado $PROJECT_DIR/.env desde .env.example"
+fi
+sed -i "s/^PGUSER=.*/PGUSER=admin_sys/" "$PROJECT_DIR/.env"
+sed -i "s/^PGPASSWORD=.*/PGPASSWORD=${ADMIN_SYS_PASSWORD}/" "$PROJECT_DIR/.env"
+echo "[OK] Sincronizado PGUSER/PGPASSWORD en $PROJECT_DIR/.env con infra/.env"
+
 echo ""
 echo "--- Procedimiento general de instalacion (U2.T2.S6) ---"
-podman-compose -f "$INFRA_DIR/compose.yaml" --env-file "$INFRA_DIR/.env" up -d
+# Solo el maestro: fixit_pg_replica se levanta via setup_replication.sh,
+# que la clona correctamente con pg_basebackup (-d sin nombre de servicio
+# levantaria tambien un "replica" vacio y desconectado, no un standby real).
+podman-compose -f "$INFRA_DIR/compose.yaml" --env-file "$INFRA_DIR/.env" up -d fixit_pg_master
 
 echo ""
 echo "--- Verificacion de arranque en modo transaccional ---"
@@ -91,7 +123,19 @@ if ! $READY; then
 fi
 
 echo "[OK] fixit_pg_master listo."
-podman exec --user postgres fixit_pg_master psql -U "${POSTGRES_SUPERUSER:-postgres}" -d "${POSTGRES_DB:-fixit_db}" -c "SELECT version();"
+
+# pg_isready puede responder "listo" contra la instancia TEMPORAL que usa
+# el entrypoint oficial para correr los scripts de docker-entrypoint-
+# initdb.d; al terminar, esa instancia se detiene y se reinicia la
+# definitiva. Si la consulta cae justo en ese reinicio, falla con
+# "the database system is shutting down" aunque todo este bien — se
+# reintenta brevemente para no reportar un falso error.
+for i in $(seq 1 10); do
+  if podman exec --user postgres fixit_pg_master psql -U "${POSTGRES_SUPERUSER:-postgres}" -d "${POSTGRES_DB:-fixit_db}" -c "SELECT version();"; then
+    break
+  fi
+  sleep 1
+done
 podman exec --user postgres fixit_pg_master psql -U "${POSTGRES_SUPERUSER:-postgres}" -d "${POSTGRES_DB:-fixit_db}" -c "\db+"
 
 echo ""

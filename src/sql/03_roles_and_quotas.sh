@@ -1,10 +1,34 @@
--- FixIT_ArquiComp — src/sql/03_roles_and_quotas.sql
--- SCB-1001 — T-04: U3.T3.S3 (cuotas de espacio por usuario) y U3.T3.S5
---   (creacion y verificacion de roles RBAC).
---
--- Credenciales: placeholders de laboratorio (mismo criterio que el seed
--- original de taller_prototipo.db con admin123/tec123). Rotar con
--- ALTER ROLE ... PASSWORD '...' antes de cualquier despliegue real.
+#!/usr/bin/env bash
+# FixIT_ArquiComp — src/sql/03_roles_and_quotas.sh
+# SCB-1001 — T-04: U3.T3.S3 (cuotas de espacio por usuario) y U3.T3.S5
+#   (creacion y verificacion de roles RBAC).
+#
+# Convertido de .sql a .sh (ver auditoria de seguridad post T-11/T-12) para
+# que las 5 contrasenias de los roles de login NUNCA queden como texto
+# literal en un archivo versionado: se inyectan como variables psql (-v)
+# leidas del entorno del contenedor (ADMIN_SYS_PASSWORD, etc.), que a su
+# vez vienen de infra/.env (gitignored, generado por init_env.sh).
+#
+# El heredoc usa el delimitador ENTRECOMILLADO ('EOSQL') para desactivar
+# toda expansion de shell dentro del bloque SQL: evita que bash interprete
+# "$$" (delimitador de cuerpo PL/pgSQL) como variables de proceso. Solo los
+# tokens :'nombre' (sintaxis de psql, no de bash) se sustituyen, y psql los
+# reemplaza por un literal SQL correctamente escapado.
+set -euo pipefail
+
+: "${ADMIN_SYS_PASSWORD:?Falta ADMIN_SYS_PASSWORD en el entorno (infra/.env)}"
+: "${APP_TECNICO_PASSWORD:?Falta APP_TECNICO_PASSWORD en el entorno (infra/.env)}"
+: "${APP_RECEPCION_PASSWORD:?Falta APP_RECEPCION_PASSWORD en el entorno (infra/.env)}"
+: "${APP_AUDITOR_PASSWORD:?Falta APP_AUDITOR_PASSWORD en el entorno (infra/.env)}"
+: "${REPLICATOR_PASSWORD:?Falta REPLICATOR_PASSWORD en el entorno (infra/.env)}"
+
+psql -v ON_ERROR_STOP=1 \
+  -v admin_pw="$ADMIN_SYS_PASSWORD" \
+  -v tecnico_pw="$APP_TECNICO_PASSWORD" \
+  -v recepcion_pw="$APP_RECEPCION_PASSWORD" \
+  -v auditor_pw="$APP_AUDITOR_PASSWORD" \
+  -v replicator_pw="$REPLICATOR_PASSWORD" \
+  --username postgres --dbname "$POSTGRES_DB" <<-'EOSQL'
 
 -- =====================================================================
 -- 1. Roles de privilegios (NOLOGIN) — RBAC
@@ -33,25 +57,37 @@ END $$;
 -- 2. Usuarios de login y asignacion de rol (RBAC)
 -- =====================================================================
 
+-- La sustitucion de variables de psql (:'var') NO opera dentro de texto
+-- delimitado por dollar-quoting ($$...$$): psql lo trata como una cadena
+-- ya cerrada, igual que el contenido entre comillas simples. Por eso los
+-- roles se crean aqui con una contraseña temporal interna (nunca expuesta:
+-- en esta fase de arranque Postgres solo acepta conexiones locales via
+-- socket Unix, no hay red hasta que terminan los scripts de init) y la
+-- contraseña real se fija justo despues, con ALTER ROLE fuera del bloque.
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'admin_sys') THEN
-        CREATE ROLE admin_sys LOGIN SUPERUSER CREATEDB CREATEROLE
-            PASSWORD 'Admin_SCB1001!';
+        CREATE ROLE admin_sys LOGIN SUPERUSER CREATEDB CREATEROLE PASSWORD 'temp';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_tecnico') THEN
-        CREATE ROLE app_tecnico LOGIN PASSWORD 'Tecnico_SCB1001!';
+        CREATE ROLE app_tecnico LOGIN PASSWORD 'temp';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_recepcion') THEN
-        CREATE ROLE app_recepcion LOGIN PASSWORD 'Recepcion_SCB1001!';
+        CREATE ROLE app_recepcion LOGIN PASSWORD 'temp';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_auditor') THEN
-        CREATE ROLE app_auditor LOGIN PASSWORD 'Auditor_SCB1001!';
+        CREATE ROLE app_auditor LOGIN PASSWORD 'temp';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'replicator') THEN
-        CREATE ROLE replicator LOGIN REPLICATION PASSWORD 'Replicator_SCB1001!';
+        CREATE ROLE replicator LOGIN REPLICATION PASSWORD 'temp';
     END IF;
 END $$;
+
+ALTER ROLE admin_sys    PASSWORD :'admin_pw';
+ALTER ROLE app_tecnico  PASSWORD :'tecnico_pw';
+ALTER ROLE app_recepcion PASSWORD :'recepcion_pw';
+ALTER ROLE app_auditor  PASSWORD :'auditor_pw';
+ALTER ROLE replicator   PASSWORD :'replicator_pw';
 
 GRANT rol_dba         TO admin_sys;
 GRANT rol_tecnico      TO app_tecnico;
@@ -112,7 +148,7 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
-AS $$
+AS $BODY$
 DECLARE
     v_quota      user_disk_quotas%ROWTYPE;
     v_row_bytes  BIGINT;
@@ -149,7 +185,7 @@ BEGIN
 
     RETURN NEW;
 END;
-$$;
+$BODY$;
 
 CREATE TRIGGER trg_quota_tickets
     BEFORE INSERT ON tickets
@@ -170,3 +206,4 @@ CREATE TRIGGER trg_quota_customer_devices
 CREATE TRIGGER trg_quota_payments
     BEFORE INSERT ON payments
     FOR EACH ROW EXECUTE FUNCTION trg_enforce_user_quota();
+EOSQL
