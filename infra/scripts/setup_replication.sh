@@ -12,8 +12,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_DIR="$(cd "$INFRA_DIR/.." && pwd)"
 
+set -a
+source "$INFRA_DIR/.env"
+set +a
+: "${REPLICATOR_PASSWORD:?Falta REPLICATOR_PASSWORD en infra/.env}"
+
 REPLICATOR_USER="replicator"
-REPLICATOR_PASSWORD="Replicator_SCB1001!"
 SLOT_NAME="fixit_replica_slot"
 REPLICA_DIR="$INFRA_DIR/volumes/replica"
 

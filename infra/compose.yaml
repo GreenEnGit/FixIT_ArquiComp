@@ -9,9 +9,19 @@ services:
     hostname: fixit_pg_master
     restart: unless-stopped
     environment:
+      # Sin valores por defecto debiles: si infra/.env no define estas
+      # variables (o init_env.sh no las genero), podman-compose las deja
+      # vacias y el entrypoint de postgres falla explicitamente en vez de
+      # arrancar con una contraseña adivinable.
       POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-fixit_db}
+      # Leidas por src/sql/03_roles_and_quotas.sh (docker-entrypoint-initdb.d)
+      ADMIN_SYS_PASSWORD: ${ADMIN_SYS_PASSWORD}
+      APP_TECNICO_PASSWORD: ${APP_TECNICO_PASSWORD}
+      APP_RECEPCION_PASSWORD: ${APP_RECEPCION_PASSWORD}
+      APP_AUDITOR_PASSWORD: ${APP_AUDITOR_PASSWORD}
+      REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD}
     command:
       - "postgres"
       - "-c"
@@ -34,7 +44,6 @@ services:
       - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:Z,ro
       - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:Z,ro
       - ../src/sql:/docker-entrypoint-initdb.d:Z,ro
-      - ../backups:/var/lib/postgresql/backups:Z
     networks:
       - fixit_dba_net
     healthcheck:

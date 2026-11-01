@@ -22,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
+from dotenv import dotenv_values
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent.parent
 EVID_DIR = PROJECT_DIR / "evidencias"
@@ -34,6 +35,11 @@ for d in (DIAG_DIR, TERM_DIR, UI_DIR):
 
 PSQL = 'podman exec --user postgres fixit_pg_master psql -U postgres -d fixit_db'
 PSQL_REPLICA = 'podman exec --user postgres fixit_pg_replica psql -U postgres -d fixit_db'
+
+# Contraseñas operativas: se leen de infra/.env (gitignored), nunca
+# hardcodeadas aqui (ver auditoria de seguridad post T-11/T-12).
+_INFRA_ENV = dotenv_values(PROJECT_DIR / "infra" / ".env")
+APP_TECNICO_PASSWORD = _INFRA_ENV["APP_TECNICO_PASSWORD"]
 
 
 # =====================================================================
@@ -85,7 +91,16 @@ def build_terminal_html(title, blocks):
 
 
 def capture_terminal(page, name, title, commands):
-    blocks = [(cmd, run(cmd)) for cmd in commands]
+    # Cada entrada es un str (se muestra y se ejecuta igual) o una tupla
+    # (texto_a_mostrar, comando_a_ejecutar) cuando el comando real contiene
+    # un secreto que no debe quedar visible en la captura (ver P02_cuotas).
+    blocks = []
+    for item in commands:
+        if isinstance(item, tuple):
+            display_cmd, exec_cmd = item
+        else:
+            display_cmd = exec_cmd = item
+        blocks.append((display_cmd, run(exec_cmd)))
     page.set_content(build_terminal_html(title, blocks))
     path = TERM_DIR / f"{name}.png"
     page.locator(".window").screenshot(path=str(path))
@@ -202,14 +217,23 @@ def render_terminal_captures(page):
         "Practica 2 — Roles RBAC (\\du+)", [
         f'{PSQL} -c "\\\\du+"',
     ])
+    _insert_cmd_display = (
+        'PGPASSWORD=****** podman exec -e PGPASSWORD -i fixit_pg_master '
+        'psql -h 127.0.0.1 -U app_tecnico -d fixit_db -c '
+        '"INSERT INTO tickets (id, status, customer_id, device_id, symptom, date, branch_id) '
+        "VALUES ('REP-EVID01', 'RECIBIDO', 'CUST-01', 'DEV-001', 'demo cuota', CURRENT_DATE, 'NORTE');\""
+    )
+    _insert_cmd_exec = (
+        f'PGPASSWORD={APP_TECNICO_PASSWORD} podman exec -e PGPASSWORD -i fixit_pg_master '
+        'psql -h 127.0.0.1 -U app_tecnico -d fixit_db -c '
+        '"INSERT INTO tickets (id, status, customer_id, device_id, symptom, date, branch_id) '
+        "VALUES ('REP-EVID01', 'RECIBIDO', 'CUST-01', 'DEV-001', 'demo cuota', CURRENT_DATE, 'NORTE');\""
+    )
     capture_terminal(page, "P02_cuotas_limite_usuarios",
         "Practica 2 — Bloqueo por cuota de espacio excedida", [
         f'{PSQL} -c "UPDATE user_disk_quotas SET max_bytes = 10, used_bytes = 0 '
         f"WHERE role_name = 'app_tecnico';\"",
-        'PGPASSWORD=Tecnico_SCB1001! podman exec -e PGPASSWORD -i fixit_pg_master '
-        'psql -h 127.0.0.1 -U app_tecnico -d fixit_db -c '
-        '"INSERT INTO tickets (id, status, customer_id, device_id, symptom, date, branch_id) '
-        "VALUES ('REP-EVID01', 'RECIBIDO', 'CUST-01', 'DEV-001', 'demo cuota', CURRENT_DATE, 'NORTE');\"",
+        (_insert_cmd_display, _insert_cmd_exec),
         f'{PSQL} -c "UPDATE user_disk_quotas SET max_bytes = 52428800, used_bytes = 0 '
         f"WHERE role_name = 'app_tecnico';\"",
         f'{PSQL} -c "SELECT * FROM user_disk_quotas;"',
