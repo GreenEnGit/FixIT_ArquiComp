@@ -21,10 +21,10 @@ jobs:
       - name: Clonar repositorio
         uses: actions/checkout@v4
 
-      - name: Instalar Podman, podman-compose y cliente de PostgreSQL 16
+      - name: Instalar Podman, podman-compose y cliente de PostgreSQL
         run: |
           sudo apt-get update
-          sudo apt-get install -y podman podman-compose postgresql-client-16
+          sudo apt-get install -y podman podman-compose postgresql-client
 
       - name: Configurar Python 3.12
         uses: actions/setup-python@v5
