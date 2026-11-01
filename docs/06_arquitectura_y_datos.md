@@ -37,7 +37,7 @@ graph TB
     ETL -->|Carga Transaccional| Master
     FastAPI -->|Lectura/Escritura ACID :5432| Master
     FastAPI -.->|Lectura Reportes :5433| Replica
-    Master ==>|Streaming Replication (WAL)| Replica
+    Master ==>|Streaming Replication WAL| Replica
     WAL ==>|Archivado Continuo / PITR| Backups
     Capturer -.->|Captura Web :8000 y Terminal :5432| FastAPI
 ```
