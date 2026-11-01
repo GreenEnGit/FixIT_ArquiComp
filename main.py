@@ -101,7 +101,7 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user), db
         SELECT a.*, i.cost as current_cost, si.qty as sale_qty
         FROM audit_logs a
         LEFT JOIN inventory i ON a.item_id = i.id
-        LEFT JOIN sales s ON a.details = 'Ticket #' || s.id
+        LEFT JOIN sales s ON a.details = 'Ticket #' || s.id::text
         LEFT JOIN sale_items si ON s.id = si.sale_id AND a.item_id = si.item_id
         WHERE a.branch_id = ? AND a.date >= ?
     """, (branch, first_day_of_month))

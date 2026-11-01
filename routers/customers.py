@@ -141,7 +141,7 @@ async def delete_customer(customer_id: str, user: dict = Depends(get_current_use
     for t in tickets:
         c.execute("SELECT end_date FROM warranties WHERE ticket_id = ?", (t["id"],))
         warranty = c.fetchone()
-        if warranty and warranty["end_date"] >= datetime.now().strftime("%Y-%m-%d"):
+        if warranty and warranty["end_date"] >= datetime.now().date():
             raise HTTPException(status_code=400, detail="No se puede eliminar al cliente porque tiene tickets con garantía en curso.")
             
     for t in tickets:

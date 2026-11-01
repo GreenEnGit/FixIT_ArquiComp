@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 import sqlite3
+import psycopg
 from database import get_password_hash, verify_password
 from dependencies import templates, get_db_conn, get_current_user, SECRET_KEY, ALGORITHM
 import jwt
@@ -42,7 +43,7 @@ async def create_user(request: Request, username: str = Form(...), password: str
     try:
         c.execute("INSERT INTO users (username, password_hash, role, branch_id) VALUES (?, ?, ?, ?)", (username, p_hash, role, branch_id))
         db.commit()
-    except sqlite3.IntegrityError:
+    except psycopg.errors.UniqueViolation:
         raise HTTPException(status_code=400, detail="El nombre de usuario ya está en uso.")
     return RedirectResponse(url="/users", status_code=303)
 
