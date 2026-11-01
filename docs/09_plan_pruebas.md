@@ -1,0 +1,29 @@
+# E09 — Plan de Pruebas, Carga, Recuperación y Verificación de Capturas Visuales
+
+## 1. Casos de Prueba Automatizados (`tests/test_dba_scb1001.py`)
+
+| ID Caso | Requisitos Validados | Tarea(s) E08 | Temas SCB-1001 | Entrada y Procedimiento | Resultado Esperado | Comando de Ejecución |
+| :--- | :---: | :---: | :--- | :--- | :--- | :--- |
+| `CP-01` | `RF-01`, `RNF-01`, `RNF-02` | `T-01`, `T-02` | `U1.T1.S1`..`S4`, `U2.T2.S1`..`S8` | Ejecutar `init_env.sh`, conectar mediante `database.py` y consultar `pg_settings`. | Instancia `PostgreSQL 16.4` activa, modo transaccional `read committed`, `shared_buffers = 256MB`, `wal_level = replica` y `logging_collector = on`. | `pytest tests/test_dba_scb1001.py -k test_cp01` |
+| `CP-02` | `RNF-03` | `T-03` | `U3.T3.S1`, `U3.T3.S2`, `U3.T3.S4` | Consultar `pg_tablespace` y `pg_tables` para todas las tablas del esquema `public`. | Los 4 tablespaces (`ts_catalogos`, `ts_transaccional`, `ts_auditoria`, `ts_indices`) existen y las ~20 tablas están ubicadas fuera de `pg_default`. | `pytest tests/test_dba_scb1001.py -k test_cp02` |
+| `CP-03` | `RNF-04` | `T-04`, `T-12` | `U3.T3.S3`, `U3.T3.S5` | Conectar como `app_tecnico`, fijar su cuota en `user_disk_quotas` a 32 KB e intentar insertar un lote de tickets; intentar un `DELETE` sobre `payments`. | La inserción falla con excepción `Cuota de espacio en disco excedida` y el `DELETE` sobre `payments` falla por falta de privilegios del rol `rol_tecnico`. | `pytest tests/test_dba_scb1001.py -k test_cp03` |
+| `CP-04` | `RF-02`, `RNF-05` | `T-05`, `T-06` | `U4.T4.S1`, `U4.T4.S2` | Cambiar a modo `recovery` con `ops_modes.sh recovery`, validar `pg_is_in_recovery()`, volver a modo `normal`, ejecutar descuento concurrente de inventario y revisar `pg_log/`. | El SGBD entra y sale de modo `recovery` limpiamente, los logs registran las transiciones y la prueba de concurrencia mantiene `stock >= 0`. | `pytest tests/test_dba_scb1001.py -k test_cp04` |
+| `CP-05` | `RF-05`, `RNF-06` | `T-05`, `T-07` | `U4.T4.S3` | Poblar 10,000 registros con `seed_workload.py`, actualizar 3,000 tickets y ejecutar `bash infra/scripts/reindex.sh`. | `EXPLAIN (ANALYZE)` confirma uso de `Index Scan` en `ts_indices` y `reindex.sh` reconstruye todos los índices con código de salida `0`. | `pytest tests/test_dba_scb1001.py -k test_cp05` |
+| `CP-06` | `RNF-07` | `T-08`, `T-12` | `U5.T5.S1`, `U5.T5.S2` | Insertar un ticket y un pago en `fixit_pg_master` (:5432) y consultarlo en `fixit_pg_replica` (:5433); intentar escribir en la réplica. | El registro aparece en `fixit_pg_replica` en < 1 segundo y el intento de escritura en la réplica es rechazado por estar en modo *Hot Standby*. | `pytest tests/test_dba_scb1001.py -k test_cp06` |
+| `CP-07` | `RNF-08` | `T-09`, `T-12` | `U5.T5.S3`, `U5.T5.S4` | Generar respaldo con `backup_job.sh`, registrar timestamp `T_safe`, simular borrado en `payments` y ejecutar `restore_pitr.sh "$T_safe"`. | Los respaldos físicos y lógicos se crean correctamente y `restore_pitr.sh` recupera el 100 % de los pagos registrados hasta `T_safe`. | `pytest tests/test_dba_scb1001.py -k test_cp07` |
+| `CP-08` | `RF-04` | `T-05`, `T-12` | `U5.T5.S5` | Ejecutar `python3 infra/scripts/migrate_sqlite_to_pg.py --verify` comparando `taller_prototipo.db` con `fixit_db`. | El conteo de filas entre SQLite 3.45.1 y PostgreSQL 16.4 coincide al 100 % y las secuencias `IDENTITY` quedan alineadas. | `pytest tests/test_dba_scb1001.py -k test_cp08` |
+| `CP-09` | `RF-03`, `RNF-09`, `RNF-10` | `T-10`, `T-12` | `U6.T6.S1`, `U6.T6.S2` | Activar auditoría (`toggle_audit.sh on`), actualizar un pago, verificar fila en `audit_logs`, desactivar auditoría (`toggle_audit.sh off`), hacer otro cambio y correr `monitor_resources.sh`. | `audit_logs` captura el cambio con auditoría activa, ignora cambios con auditoría inactiva y `monitor_resources.sh` devuelve estadísticas de `pg_stat_statements`. | `pytest tests/test_dba_scb1001.py -k test_cp09` |
+| `CP-10` | `RNF-11` | `T-11`, `T-12` | Transversal (11 Prácticas y Diagramas) | Ejecutar `python3 infra/scripts/capture_evidence.py --verify` e inspeccionar las carpetas `evidencias/diagramas/`, `evidencias/capturas/terminal/` y `evidencias/capturas/ui/`. | Existen los **4 diagramas `.png`**, las **25 capturas `.png` de terminal** y las **4 capturas `.png` de la interfaz web FastAPI**, todas con cabecera PNG válida, tamaño > 10 KB y referenciadas en los 6 documentos Markdown. | `pytest tests/test_dba_scb1001.py -k test_cp10` |
+
+## 2. Lista de Verificación contra las 11 Prácticas Oficiales del PDF (Sección 8)
+- [x] **Práctica 1:** Instalar y configurar un SGBD (`CP-01`, capturas `P01_*.png`)[cite: 10].
+- [x] **Práctica 2:** Crea espacios asignados en disco para el sistema y usuarios, asignando cuotas límite (`CP-02`, `CP-03`, capturas `P02_*.png`)[cite: 10].
+- [x] **Práctica 3:** Crear índices y los reorganiza (`CP-05`, captura `P03_indices_y_reorganizacion.png`)[cite: 10].
+- [x] **Práctica 4:** Manipular los modos de operación (`CP-04`, captura `P04_modos_operacion_recovery.png`)[cite: 10].
+- [x] **Práctica 5:** Verifica archivos log verificando buen funcionamiento (`CP-04`, captura `P05_verificacion_archivos_log.png`)[cite: 10].
+- [x] **Práctica 6:** Espejeo y Réplica de datos (`CP-06`, capturas `P06_*.png`)[cite: 10].
+- [x] **Práctica 7:** Respaldo de Base de Datos (`CP-07`, captura `P07_respaldo_base_datos.png`)[cite: 10].
+- [x] **Práctica 8:** Recuperación de datos (`CP-07`, captura `P08_recuperacion_datos_pitr.png`)[cite: 10].
+- [x] **Práctica 9:** Migración de datos (`CP-08`, capturas `P09_migracion_sqlite_postgres.png` y `UI_01..04.png`)[cite: 10].
+- [x] **Práctica 10:** Activa, verifica y desactiva auditoría (`CP-09`, capturas `P10_*.png`)[cite: 10].
+- [x] **Práctica 11:** Monitorea recursos del SGBD (`CP-09`, captura `P11_monitoreo_recursos_sgbd.png`)[cite: 10].

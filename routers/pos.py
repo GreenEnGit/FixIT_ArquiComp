@@ -53,9 +53,9 @@ async def checkout_cart(payload: CheckoutRequest, user: dict = Depends(get_curre
 
     # Crear la Venta General
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    c.execute("INSERT INTO sales (total, date, branch_id, username) VALUES (?, ?, ?, ?)",
+    c.execute("INSERT INTO sales (total, date, branch_id, username) VALUES (?, ?, ?, ?) RETURNING id",
               (total, now, user["branch_id"], user["username"]))
-    sale_id = c.lastrowid
+    sale_id = c.fetchone()["id"]
 
     # Insertar Articulos y Descontar Stock
     for item in cart_data:

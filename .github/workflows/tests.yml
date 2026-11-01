@@ -1,0 +1,57 @@
+name: Suite SCB-1001 (CP-01 a CP-10)
+
+# NOTA: este workflow aprovisiona un cluster PostgreSQL real con Podman
+# rootless dentro del runner (no usa mocks). No se pudo ejecutar en la
+# infraestructura real de GitHub Actions al redactarlo (sin acceso a CI
+# desde el entorno donde se desarrollo); validar en el primer PR/push
+# antes de confiar en el resultado como gate definitivo.
+
+on:
+  push:
+    branches: [feat/dba-postgres-scb1001]
+  pull_request:
+    branches: [master]
+  workflow_dispatch: {}
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Podman, podman-compose y cliente de PostgreSQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman podman-compose postgresql-client
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias de Python
+        run: pip install -r requirements.txt
+
+      - name: Generar taller_prototipo.db (fuente de la migracion)
+        run: python3 infra/scripts/seed_sqlite_source.py
+
+      - name: Aprovisionar fixit_pg_master (genera contraseñas aleatorias)
+        run: bash infra/scripts/init_env.sh
+
+      - name: Migrar SQLite -> PostgreSQL
+        run: python3 infra/scripts/migrate_sqlite_to_pg.py --verify
+
+      - name: Levantar fixit_pg_replica (Streaming Replication)
+        run: bash infra/scripts/setup_replication.sh
+
+      - name: Ejecutar suite CP-01 a CP-10
+        run: pytest -v tests/test_dba_scb1001.py
+
+      - name: Logs de los contenedores (si algo fallo)
+        if: failure()
+        run: |
+          podman logs fixit_pg_master || true
+          podman logs fixit_pg_replica || true
+          podman ps -a || true

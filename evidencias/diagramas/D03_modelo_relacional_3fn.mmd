@@ -1,0 +1,97 @@
+erDiagram
+    branches ||--o{ users : "emplea"
+    branches ||--o{ tickets : "opera"
+    branches ||--o{ inventory : "almacena"
+    customers ||--o{ customer_devices : "posee"
+    customers ||--o{ tickets : "solicita"
+    customer_devices ||--o{ tickets : "ingresa_en"
+    users ||--o{ tickets : "atiende"
+    tickets ||--o{ ticket_parts : "consume"
+    tickets ||--o{ ticket_status_history : "registra"
+    tickets ||--o{ payments : "liquida"
+    tickets ||--o| warranties : "ampara"
+    inventory ||--o{ ticket_parts : "suministra"
+    inventory ||--o{ inventory_movements : "mueve"
+    users ||--o{ audit_logs : "ejecuta"
+
+    branches {
+        int id PK
+        varchar name
+        varchar address
+        varchar phone
+        boolean is_active
+    }
+    users {
+        int id PK
+        int branch_id FK
+        varchar username UK
+        varchar password_hash
+        varchar role
+        boolean is_active
+    }
+    customers {
+        int id PK
+        varchar full_name
+        varchar phone
+        varchar email
+        timestamptz created_at
+    }
+    customer_devices {
+        int id PK
+        int customer_id FK
+        varchar device_type
+        varchar brand
+        varchar model
+        varchar serial_number
+    }
+    tickets {
+        int id PK
+        int branch_id FK
+        int customer_id FK
+        int device_id FK
+        int assigned_tech_id FK
+        varchar status
+        text problem_description
+        text diagnosis
+        numeric estimated_cost
+        numeric final_cost
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    inventory {
+        int id PK
+        int branch_id FK
+        varchar sku UK
+        varchar part_name
+        int stock
+        int min_stock
+        numeric unit_cost
+        numeric sale_price
+    }
+    ticket_parts {
+        int id PK
+        int ticket_id FK
+        int part_id FK
+        int quantity
+        numeric unit_price
+    }
+    payments {
+        int id PK
+        int ticket_id FK
+        int received_by FK
+        numeric amount
+        varchar payment_method
+        timestamptz paid_at
+    }
+    audit_logs {
+        bigint id PK
+        varchar db_user
+        int app_user_id
+        varchar table_name
+        varchar operation
+        varchar record_id
+        jsonb old_data
+        jsonb new_data
+        inet client_ip
+        timestamptz created_at
+    }

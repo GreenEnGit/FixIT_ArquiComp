@@ -1,0 +1,95 @@
+# FixIT_ArquiComp — infra/compose.yaml
+# SCB-1001 U2.T2.S2/S4/S6 — Estructura fisica, instalacion transaccional
+# y procedimiento general de instalacion del SGBD via Podman 4.9.3 / podman-compose 1.0.6
+
+services:
+  fixit_pg_master:
+    image: docker.io/library/postgres:16.4-bookworm
+    container_name: fixit_pg_master
+    hostname: fixit_pg_master
+    restart: unless-stopped
+    environment:
+      # Sin valores por defecto debiles: si infra/.env no define estas
+      # variables (o init_env.sh no las genero), podman-compose las deja
+      # vacias y el entrypoint de postgres falla explicitamente en vez de
+      # arrancar con una contraseña adivinable.
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-fixit_db}
+      # Leidas por src/sql/03_roles_and_quotas.sh (docker-entrypoint-initdb.d)
+      ADMIN_SYS_PASSWORD: ${ADMIN_SYS_PASSWORD}
+      APP_TECNICO_PASSWORD: ${APP_TECNICO_PASSWORD}
+      APP_RECEPCION_PASSWORD: ${APP_RECEPCION_PASSWORD}
+      APP_AUDITOR_PASSWORD: ${APP_AUDITOR_PASSWORD}
+      REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD}
+    command:
+      - "postgres"
+      - "-c"
+      - "config_file=/etc/postgresql/postgresql.conf"
+      - "-c"
+      - "hba_file=/etc/postgresql/pg_hba.conf"
+    ports:
+      - "5432:5432"
+    volumes:
+      # Ownership (uid 999 "postgres" dentro del contenedor) se fija una sola
+      # vez desde el host via `podman unshare chown` en init_env.sh, por lo
+      # que no se usa el sufijo :U aqui (evita que Podman revierta el dueño
+      # a root en cada reinicio del contenedor).
+      - ./volumes/pgdata:/var/lib/postgresql/data:Z
+      - ./volumes/tablespaces/ts_catalogos:/var/lib/postgresql/tablespaces/ts_catalogos:Z
+      - ./volumes/tablespaces/ts_transaccional:/var/lib/postgresql/tablespaces/ts_transaccional:Z
+      - ./volumes/tablespaces/ts_auditoria:/var/lib/postgresql/tablespaces/ts_auditoria:Z
+      - ./volumes/tablespaces/ts_indices:/var/lib/postgresql/tablespaces/ts_indices:Z
+      - ./volumes/wal_archive:/var/lib/postgresql/wal_archive:Z
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:Z,ro
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:Z,ro
+      - ../src/sql:/docker-entrypoint-initdb.d:Z,ro
+    networks:
+      - fixit_dba_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  fixit_pg_replica:
+    image: docker.io/library/postgres:16.4-bookworm
+    container_name: fixit_pg_replica
+    hostname: fixit_pg_replica
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-fixit_db}
+    command:
+      - "postgres"
+      - "-c"
+      - "config_file=/etc/postgresql/postgresql.conf"
+      - "-c"
+      - "hba_file=/etc/postgresql/pg_hba.conf"
+    ports:
+      - "5433:5432"
+    volumes:
+      # El directorio de datos y los tablespaces se clonan desde el maestro
+      # via pg_basebackup en infra/scripts/setup_replication.sh (ejecutado
+      # desde el host), por lo que aqui solo se montan como destino.
+      - ./volumes/replica/pgdata:/var/lib/postgresql/data:Z
+      - ./volumes/replica/tablespaces/ts_catalogos:/var/lib/postgresql/tablespaces/ts_catalogos:Z
+      - ./volumes/replica/tablespaces/ts_transaccional:/var/lib/postgresql/tablespaces/ts_transaccional:Z
+      - ./volumes/replica/tablespaces/ts_auditoria:/var/lib/postgresql/tablespaces/ts_auditoria:Z
+      - ./volumes/replica/tablespaces/ts_indices:/var/lib/postgresql/tablespaces/ts_indices:Z
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:Z,ro
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:Z,ro
+    networks:
+      - fixit_dba_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+networks:
+  fixit_dba_net:
+    driver: bridge
