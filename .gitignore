@@ -46,3 +46,19 @@ read_pdf.py
 
 # Archivos subidos por usuarios (generados en runtime)
 static/uploads/
+
+# === Exclusiones DBA SCB-1001 ===
+.env
+infra/volumes/
+backups/
+graphify-out/cache/
+*.dump
+*.tar.gz
+*.wal
+__pycache__/
+.venv/
+.pytest_cache/
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
