@@ -47,7 +47,7 @@ async def financial_reports(request: Request, start_date: str = None, end_date: 
         ticket_query += " AND t.branch_id = ?"
         ticket_params.append(selected_branch)
         
-    ticket_query += " GROUP BY t.id ORDER BY t.date DESC"
+    ticket_query += " GROUP BY t.id, c.name, d.type, d.model ORDER BY t.date DESC"
     c.execute(ticket_query, tuple(ticket_params))
     raw_tickets = c.fetchall()
     
@@ -82,7 +82,7 @@ async def financial_reports(request: Request, start_date: str = None, end_date: 
                si.qty as sale_qty
         FROM audit_logs a
         LEFT JOIN inventory i ON a.item_id = i.id
-        LEFT JOIN sales s ON a.details = 'Ticket #' || s.id
+        LEFT JOIN sales s ON a.details = 'Ticket #' || s.id::text
         LEFT JOIN sale_items si ON s.id = si.sale_id AND a.item_id = si.item_id
         WHERE a.date >= ? AND a.date <= ?
     """
