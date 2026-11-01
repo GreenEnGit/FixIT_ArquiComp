@@ -8,7 +8,7 @@
 | :--- | :--- |
 | Instalar y configurar el SGBD | `infra/scripts/init_env.sh`, `infra/compose.yaml` |
 | Definir espacio de almacenamiento (tablespaces) | `src/sql/01_tablespaces.sql` |
-| Administrar seguridad y accesos (roles, cuotas) | `src/sql/03_roles_and_quotas.sql` |
+| Administrar seguridad y accesos (roles, cuotas) | `src/sql/03_roles_and_quotas.sh` |
 | Garantizar disponibilidad (espejeo/réplica) | `infra/scripts/setup_replication.sh` |
 | Planificar respaldo y recuperación | `infra/scripts/backup_job.sh`, `restore_pitr.sh` |
 | Monitorear rendimiento y auditar | `src/sql/05_audit_and_monitoring.sql`, `monitor_resources.sh` |

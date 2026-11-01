@@ -48,7 +48,7 @@ El esquema completo con tipos, PK/FK y restricciones está definido en [`src/sql
 
 ## 4. Cuotas de espacio por rol
 
-El trigger `trg_enforce_user_quota()` ([`src/sql/03_roles_and_quotas.sql`](src/sql/03_roles_and_quotas.sql)) aborta cualquier `INSERT` que exceda la cuota asignada en `user_disk_quotas`, usando `session_user` (no `current_user`, por ser `SECURITY DEFINER`) para identificar siempre al rol conectado.
+El trigger `trg_enforce_user_quota()` ([`src/sql/03_roles_and_quotas.sh`](src/sql/03_roles_and_quotas.sh)) aborta cualquier `INSERT` que exceda la cuota asignada en `user_disk_quotas`, usando `session_user` (no `current_user`, por ser `SECURITY DEFINER`) para identificar siempre al rol conectado.
 
 ![Bloqueo por cuota de espacio excedida](evidencias/capturas/terminal/P02_cuotas_limite_usuarios.png)
 
