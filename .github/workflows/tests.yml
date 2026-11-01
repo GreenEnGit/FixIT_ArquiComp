@@ -8,7 +8,7 @@ name: Suite SCB-1001 (CP-01 a CP-10)
 
 on:
   push:
-    branches: [feat/dba-postgres-scb1001]
+    branches: [master, feat/dba-postgres-scb1001]
   pull_request:
     branches: [master]
   workflow_dispatch: {}
