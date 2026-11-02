@@ -8,10 +8,10 @@
         </div>
         <div class="flex gap-3">
             <a href="/users/backup" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-slate-900 transition-colors flex items-center gap-2">
-                💾 Descargar Respaldo
+                <i data-lucide="download" class="w-4 h-4"></i> Descargar Respaldo
             </a>
-            <button onclick="document.getElementById('newUserModal').classList.remove('hidden')" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-indigo-700 transition-colors">
-                + Nuevo Empleado
+            <button onclick="document.getElementById('newUserModal').classList.remove('hidden')" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                <i data-lucide="user-plus" class="w-4 h-4"></i> Nuevo Empleado
             </button>
         </div>
     </div>
@@ -35,7 +35,7 @@
                         <td class="p-4 font-mono text-slate-400 font-bold">{{ u.id }}</td>
                         <td class="p-4 font-bold text-slate-900">{{ u.username }}</td>
                         <td class="p-4">
-                            <span class="px-2 py-1 rounded text-xs font-bold {% if u.role == 'ADMIN' %}bg-purple-100 text-purple-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                            <span class="px-2 py-1 rounded text-xs font-bold font-mono {% if u.role == 'ADMIN' %}bg-indigo-100 text-indigo-800{% else %}bg-brand-100 text-brand-800{% endif %}">
                                 {{ u.role }}
                             </span>
                         </td>
@@ -43,7 +43,9 @@
                         <td class="p-4 text-right">
                             {% if user.role == 'ADMIN' and u.username != user.username %}
                             <form action="/users/{{ u.id }}/delete" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de eliminar a este empleado del sistema?');">
-                                <button type="submit" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm">Eliminar</button>
+                                <button type="submit" class="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm inline-flex items-center gap-1">
+                                    <i data-lucide="user-x" class="w-3.5 h-3.5"></i> Eliminar
+                                </button>
                             </form>
                             {% endif %}
                         </td>

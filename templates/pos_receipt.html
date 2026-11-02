@@ -47,7 +47,7 @@
         <div class="flex justify-center gap-2">
             <button onclick="window.print()" class="bg-emerald-600 text-white px-6 py-2 rounded shadow hover:bg-emerald-700 font-sans font-bold">🖨️ Imprimir Ticket</button>
             {% if not (sale.status or '').startswith('REVERTIDA') %}
-            <button onclick="revertPosSale({{ sale.id }})" class="bg-red-650 hover:bg-red-750 bg-red-600 text-white px-4 py-2 rounded shadow font-sans font-bold">↩️ Revertir Compra</button>
+            <button onclick="revertPosSale({{ sale.id }})" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded shadow font-sans font-bold">↩️ Revertir Compra</button>
             {% endif %}
         </div>
         <a href="/pos" class="text-slate-500 hover:text-slate-700 font-sans underline">← Volver a Caja</a>
@@ -55,7 +55,7 @@
 
     <div class="ticket-container">
         {% if (sale.status or '').startswith('REVERTIDA') %}
-        <div class="bg-red-100 border border-red-400 text-red-800 p-2.5 text-center text-xs font-bold font-sans rounded mb-3">
+        <div class="bg-rose-100 border border-rose-300 text-rose-800 p-2.5 text-center text-xs font-bold font-sans rounded mb-3">
             🚫 TICKET ANULADO / REVERTIDO
             <p class="font-normal text-[10px] mt-1">{{ sale.status }}</p>
         </div>

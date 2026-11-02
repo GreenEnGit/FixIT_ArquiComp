@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - FixIT</title>
     <link rel="icon" type="image/png" href="/static/img/logo-32x32.png">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="/static/tailwindcss.js"></script>
+    <script src="/static/lucide.min.js"></script>
     <style>
         body {
-            font-family: 'Outfit', sans-serif;
+            font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
         }
         @keyframes gradient-bg {
             0% { background-position: 0% 50%; }
@@ -83,8 +83,11 @@
             <div class="flex justify-center mb-4">
                 <img src="/static/img/logo-256x256.png" alt="FixIT Logo" class="h-28 w-auto drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">
             </div>
-            <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-300 tracking-tight">Bienvenido a FixIT</h1>
+            <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-300 tracking-tight">FixIT · TechInventory & Repair System</h1>
             <p class="text-slate-400 text-sm mt-2 font-light">El sistema operativo de tu taller</p>
+            <p class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono text-emerald-300 bg-emerald-500/10 border border-emerald-500/20">
+                <i data-lucide="database" class="w-3.5 h-3.5"></i> PostgreSQL 16.4 &middot; Cluster HA
+            </p>
         </div>
         
         {% if error %}
@@ -101,7 +104,7 @@
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                     </div>
-                    <input type="text" name="username" required class="input-glass w-full pl-11 pr-4 py-3 rounded-xl focus:outline-none text-sm" placeholder="Ej: admin">
+                    <input type="text" name="username" autocomplete="username" required class="input-glass w-full pl-11 pr-4 py-3 rounded-xl focus:outline-none text-sm" placeholder="Ej: admin">
                 </div>
             </div>
             <div>
@@ -110,7 +113,7 @@
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                     </div>
-                    <input type="password" name="password" required class="input-glass w-full pl-11 pr-4 py-3 rounded-xl focus:outline-none text-sm" placeholder="••••••••">
+                    <input type="password" name="password" autocomplete="current-password" required class="input-glass w-full pl-11 pr-4 py-3 rounded-xl focus:outline-none text-sm" placeholder="••••••••">
                 </div>
             </div>
             
@@ -127,5 +130,8 @@
             </a>
         </div>
     </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => { if (window.lucide) lucide.createIcons(); });
+    </script>
 </body>
 </html>

@@ -23,13 +23,13 @@
     <!-- Header principal con efecto premium -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
         <div>
-            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
-                📈 Reportes Financieros
+            <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                <i data-lucide="bar-chart-3" class="w-6 h-6 text-brand-500"></i> Reportes Financieros
             </h1>
             <p class="text-slate-500 text-sm mt-1">Análisis detallado de ingresos, costos y utilidad neta real por periodo.</p>
         </div>
         <div class="flex items-center gap-3 no-print">
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-brand-100 text-brand-800">
                 {% if branch_id == 'TODAS' %}
                     🌍 Consolidado Global
                 {% else %}
@@ -81,7 +81,7 @@
             {% if user.role == 'ADMIN' %}
             <div class="col-span-1">
                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Filtrar por Sucursal</label>
-                <select name="branch_id" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium text-slate-700">
+                <select name="branch_id" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all font-medium text-slate-700">
                     <option value="TODAS" {% if branch_id == 'TODAS' %}selected{% endif %}>🌍 Todas las Sucursales</option>
                     {% for b in all_branches %}
                         <option value="{{ b.id }}" {% if branch_id == b.id %}selected{% endif %}>📍 {{ b.name }}</option>
@@ -92,16 +92,16 @@
             
             <div class="{% if user.role == 'ADMIN' %}col-span-1{% else %}col-span-2{% endif %}">
                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha de Inicio</label>
-                <input type="date" name="start_date" value="{{ start_date }}" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium text-slate-700">
+                <input type="date" name="start_date" value="{{ start_date }}" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all font-medium text-slate-700">
             </div>
             
             <div class="{% if user.role == 'ADMIN' %}col-span-1{% else %}col-span-2{% endif %}">
                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha de Fin</label>
-                <input type="date" name="end_date" value="{{ end_date }}" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium text-slate-700">
+                <input type="date" name="end_date" value="{{ end_date }}" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all font-medium text-slate-700">
             </div>
             
             <div class="col-span-1">
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-600/30 transition-all duration-200 flex items-center justify-center gap-2 h-[45px]">
+                <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-brand-500/20 hover:shadow-brand-600/30 transition-all duration-200 flex items-center justify-center gap-2 h-[45px]">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     Actualizar Reporte
                 </button>
@@ -112,20 +112,20 @@
     <!-- Grid de KPIs Premium -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 print-grid-2">
         <!-- Tarjeta 1: Ingresos Totales -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500 hover:shadow-md transition-all">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-brand-500 hover:shadow-md transition-all">
             <div class="flex justify-between items-start mb-2">
                 <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider">Ingresos Totales</h3>
-                <span class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-bold">Cobrado</span>
+                <span class="text-xs bg-brand-50 text-brand-600 px-2 py-0.5 rounded-md font-bold">Cobrado</span>
             </div>
-            <p class="text-3xl font-black text-slate-900">${{ "{:,.2f}".format(total_revenue) }}</p>
+            <p class="text-3xl font-black text-slate-900 font-mono tabular-nums">${{ "{:,.2f}".format(total_revenue) }}</p>
             <div class="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-1 text-[11px] text-slate-500">
                 <div class="flex justify-between">
                     <span>🎟️ Tickets de Reparación:</span>
-                    <span class="font-semibold text-slate-800">${{ "{:,.2f}".format(ticket_revenue) }}</span>
+                    <span class="font-semibold text-slate-800 font-mono tabular-nums">${{ "{:,.2f}".format(ticket_revenue) }}</span>
                 </div>
                 <div class="flex justify-between">
                     <span>🛒 Ventas Directas POS:</span>
-                    <span class="font-semibold text-slate-800">${{ "{:,.2f}".format(direct_sales_rev) }}</span>
+                    <span class="font-semibold text-slate-800 font-mono tabular-nums">${{ "{:,.2f}".format(direct_sales_rev) }}</span>
                 </div>
             </div>
         </div>
@@ -136,15 +136,15 @@
                 <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider">Costos de Refacciones</h3>
                 <span class="text-xs bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md font-bold">Costo Base</span>
             </div>
-            <p class="text-3xl font-black text-rose-600">${{ "{:,.2f}".format(ticket_parts_cost + direct_sales_cost) }}</p>
+            <p class="text-3xl font-black text-rose-600 font-mono tabular-nums">${{ "{:,.2f}".format(ticket_parts_cost + direct_sales_cost) }}</p>
             <div class="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-1 text-[11px] text-slate-500">
                 <div class="flex justify-between">
                     <span>🔧 Usadas en Reparaciones:</span>
-                    <span class="font-semibold text-slate-800">${{ "{:,.2f}".format(ticket_parts_cost) }}</span>
+                    <span class="font-semibold text-slate-800 font-mono tabular-nums">${{ "{:,.2f}".format(ticket_parts_cost) }}</span>
                 </div>
                 <div class="flex justify-between">
                     <span>📦 Vendidas en POS:</span>
-                    <span class="font-semibold text-slate-800">${{ "{:,.2f}".format(direct_sales_cost) }}</span>
+                    <span class="font-semibold text-slate-800 font-mono tabular-nums">${{ "{:,.2f}".format(direct_sales_cost) }}</span>
                 </div>
             </div>
         </div>
@@ -155,7 +155,7 @@
                 <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider">Pérdida por Mermas</h3>
                 <span class="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md font-bold">Pérdida Directa</span>
             </div>
-            <p class="text-3xl font-black text-amber-600">${{ "{:,.2f}".format(mermas_cost) }}</p>
+            <p class="text-3xl font-black text-amber-600 font-mono tabular-nums">${{ "{:,.2f}".format(mermas_cost) }}</p>
             <div class="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-1 text-[11px] text-slate-500">
                 <div class="flex justify-between">
                     <span>⚠️ Artículos Dañados / Perdidos:</span>
@@ -174,15 +174,15 @@
                 <h3 class="text-slate-300 text-xs font-bold uppercase tracking-wider">Ganancia Neta Real</h3>
                 <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md font-bold">Utilidad Real</span>
             </div>
-            <p class="text-3xl font-black text-emerald-400">${{ "{:,.2f}".format(net_profit) }}</p>
+            <p class="text-3xl font-black text-emerald-400 font-mono tabular-nums">${{ "{:,.2f}".format(net_profit) }}</p>
             <div class="mt-4 pt-3 border-t border-slate-700/50 flex flex-col gap-1 text-[11px] text-slate-400">
                 <div class="flex justify-between">
                     <span>🔧 Utilidad de Tickets:</span>
-                    <span class="font-semibold text-emerald-300">${{ "{:,.2f}".format(ticket_profit) }}</span>
+                    <span class="font-semibold text-emerald-300 font-mono tabular-nums">${{ "{:,.2f}".format(ticket_profit) }}</span>
                 </div>
                 <div class="flex justify-between">
                     <span>🛒 Utilidad Ventas POS:</span>
-                    <span class="font-semibold text-emerald-300">${{ "{:,.2f}".format(direct_sales_profit) }}</span>
+                    <span class="font-semibold text-emerald-300 font-mono tabular-nums">${{ "{:,.2f}".format(direct_sales_profit) }}</span>
                 </div>
             </div>
         </div>
@@ -193,9 +193,9 @@
         <div class="border-b border-slate-200 bg-slate-50/50 px-6 py-2 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 no-print">
             <!-- Navegación de Pestañas -->
             <div class="flex border-b sm:border-none border-slate-200" id="reportsTabs">
-                <button onclick="switchTab('tab-tickets')" id="btn-tab-tickets" class="py-4 px-4 font-bold text-sm border-b-2 border-blue-600 text-blue-600 focus:outline-none transition-all duration-150 flex items-center gap-2">
+                <button onclick="switchTab('tab-tickets')" id="btn-tab-tickets" class="py-4 px-4 font-bold text-sm border-b-2 border-brand-600 text-brand-600 focus:outline-none transition-all duration-150 flex items-center gap-2">
                     🎟️ Tickets de Servicio
-                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold ml-1">{{ tickets|length }}</span>
+                    <span class="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full font-bold ml-1">{{ tickets|length }}</span>
                 </button>
                 <button onclick="switchTab('tab-pos')" id="btn-tab-pos" class="py-4 px-4 font-bold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 focus:outline-none transition-all duration-150 flex items-center gap-2">
                     🛒 Ventas Directas (POS)
@@ -236,7 +236,7 @@
                         <tbody class="divide-y divide-slate-100">
                             {% for t in tickets %}
                             <tr class="hover:bg-slate-50/80 transition-colors">
-                                <td class="px-6 py-4 font-mono font-bold text-blue-600">{{ t.id }}</td>
+                                <td class="px-6 py-4 font-mono font-bold text-brand-600">{{ t.id }}</td>
                                 <td class="px-6 py-4 text-slate-600 whitespace-nowrap">{{ t.date }}</td>
                                 <td class="px-6 py-4">
                                     <p class="font-bold text-slate-900">{{ t.customer_name }}</p>
@@ -247,12 +247,12 @@
                                     <span class="px-2 py-1 text-xs font-bold rounded bg-slate-100 text-slate-600 border border-slate-200">{{ t.branch_id }}</span>
                                 </td>
                                 {% endif %}
-                                <td class="px-6 py-4 text-right font-medium text-slate-700">${{ "{:,.2f}".format(t.labor_cost) }}</td>
-                                <td class="px-6 py-4 text-right font-medium text-slate-700">${{ "{:,.2f}".format(t.parts_revenue) }}</td>
-                                <td class="px-6 py-4 text-right text-rose-500 font-medium">${{ "{:,.2f}".format(t.parts_cost) }}</td>
-                                <td class="px-6 py-4 text-right font-black text-emerald-600">${{ "{:,.2f}".format(t.ticket_profit) }}</td>
+                                <td class="px-6 py-4 text-right font-medium text-slate-700 font-mono tabular-nums">${{ "{:,.2f}".format(t.labor_cost) }}</td>
+                                <td class="px-6 py-4 text-right font-medium text-slate-700 font-mono tabular-nums">${{ "{:,.2f}".format(t.parts_revenue) }}</td>
+                                <td class="px-6 py-4 text-right text-rose-500 font-medium font-mono tabular-nums">${{ "{:,.2f}".format(t.parts_cost) }}</td>
+                                <td class="px-6 py-4 text-right font-black text-emerald-600 font-mono tabular-nums">${{ "{:,.2f}".format(t.ticket_profit) }}</td>
                                 <td class="px-6 py-4 text-center no-print">
-                                    <a href="/ticket/{{ t.id }}" class="inline-flex items-center px-2.5 py-1 text-[11px] font-bold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                                    <a href="/ticket/{{ t.id }}" class="inline-flex items-center px-2.5 py-1 text-[11px] font-bold text-brand-600 bg-brand-50 rounded-lg hover:bg-brand-100 transition-colors">
                                         Detalle
                                     </a>
                                 </td>
@@ -304,9 +304,9 @@
                                 {% endif %}
                                 <td class="px-6 py-4 text-slate-600 italic text-xs">{{ ds.details }}</td>
                                 <td class="px-6 py-4 text-right font-semibold text-slate-950">{{ ds.qty }}</td>
-                                <td class="px-6 py-4 text-right font-medium text-slate-800">${{ "{:,.2f}".format(ds.monetary_impact) }}</td>
-                                <td class="px-6 py-4 text-right text-rose-500 font-medium">${{ "{:,.2f}".format(ds.cost) }}</td>
-                                <td class="px-6 py-4 text-right font-black text-emerald-600">${{ "{:,.2f}".format(ds.profit) }}</td>
+                                <td class="px-6 py-4 text-right font-medium text-slate-800 font-mono tabular-nums">${{ "{:,.2f}".format(ds.monetary_impact) }}</td>
+                                <td class="px-6 py-4 text-right text-rose-500 font-medium font-mono tabular-nums">${{ "{:,.2f}".format(ds.cost) }}</td>
+                                <td class="px-6 py-4 text-right font-black text-emerald-600 font-mono tabular-nums">${{ "{:,.2f}".format(ds.profit) }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -387,7 +387,7 @@
         // Quitar estilos activos de todos los botones de pestañas
         const buttons = document.querySelectorAll('#reportsTabs button');
         buttons.forEach(b => {
-            b.classList.remove('border-blue-600', 'text-blue-600');
+            b.classList.remove('border-brand-600', 'text-brand-600');
             b.classList.add('border-transparent', 'text-slate-500');
         });
         
@@ -395,7 +395,7 @@
         const activeBtn = document.getElementById('btn-' + tabId);
         if (activeBtn) {
             activeBtn.classList.remove('border-transparent', 'text-slate-500');
-            activeBtn.classList.add('border-blue-600', 'text-blue-600');
+            activeBtn.classList.add('border-brand-600', 'text-brand-600');
         }
     }
 </script>

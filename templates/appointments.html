@@ -10,11 +10,11 @@
         
         <!-- Calendario Simulado -->
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
-                <h2 class="text-lg font-bold text-blue-900 flex items-center gap-2">
+            <div class="bg-brand-50 px-6 py-4 border-b border-brand-100 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-indigo-900 flex items-center gap-2">
                     📅 Citas Agendadas
                 </h2>
-                <button onclick="document.getElementById('newAppointmentModal').classList.remove('hidden')" class="text-sm font-medium text-blue-600 hover:text-blue-800 bg-white px-3 py-1 rounded border border-blue-200 shadow-sm">+ Nueva Cita</button>
+                <button onclick="document.getElementById('newAppointmentModal').classList.remove('hidden')" class="text-sm font-medium text-brand-600 hover:text-brand-800 bg-white px-3 py-1 rounded border border-brand-200 shadow-sm">+ Nueva Cita</button>
             </div>
             <div class="p-0">
                 <ul class="divide-y divide-slate-100">
@@ -41,7 +41,7 @@
                                 {% endif %}
                                 <form action="/appointments/{{ appt.id }}/status" method="POST" class="m-0 p-0">
                                     <input type="hidden" name="status" value="ELIMINAR">
-                                    <button type="submit" class="text-[10px] bg-red-100 hover:bg-red-200 text-red-800 px-2 py-0.5 rounded font-bold" title="Eliminar">🗑️</button>
+                                    <button type="submit" class="text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 px-2 py-0.5 rounded font-bold" title="Eliminar">🗑️</button>
                                 </form>
                             </div>
                         </div>
@@ -88,7 +88,7 @@
                                 </form>
                                 {% if user.role == 'ADMIN' %}
                                 <form action="/appointments/loaner/{{ loaner.id }}/delete" method="POST" class="m-0 p-0" onsubmit="return confirm('¿Eliminar permanentemente este equipo de préstamo?');">
-                                    <button type="submit" class="text-red-400 hover:text-red-600 p-1 rounded transition-colors" title="Eliminar Equipo">
+                                    <button type="submit" class="text-rose-400 hover:text-rose-600 p-1 rounded transition-colors" title="Eliminar Equipo">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                     </button>
                                 </form>
@@ -113,32 +113,32 @@
     <!-- Modal Nueva Cita -->
     <div id="newAppointmentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div class="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
-                <h2 class="font-bold text-blue-900">Agendar Nueva Cita</h2>
-                <button onclick="document.getElementById('newAppointmentModal').classList.add('hidden')" class="text-blue-400 hover:text-blue-600">
+            <div class="bg-brand-50 px-6 py-4 border-b border-brand-100 flex justify-between items-center">
+                <h2 class="font-bold text-indigo-900">Agendar Nueva Cita</h2>
+                <button onclick="document.getElementById('newAppointmentModal').classList.add('hidden')" class="text-brand-400 hover:text-brand-600">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
             <form action="/appointments/new" method="POST" class="p-6 space-y-4">
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1">Nombre del Cliente</label>
-                    <input type="text" name="customer_name" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <input type="text" name="customer_name" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1">Motivo / Servicio a Realizar</label>
-                    <input type="text" name="service" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <input type="text" name="service" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1">Día de la Cita</label>
-                        <input type="date" id="appointmentDate" name="date" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        <input type="date" id="appointmentDate" name="date" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1">Hora de Ingreso</label>
-                        <input type="time" name="time" min="09:00" max="19:00" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500" title="Seleccione hora dentro del horario laboral">
+                        <input type="time" name="time" min="09:00" max="19:00" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500" title="Seleccione hora dentro del horario laboral">
                     </div>
                 </div>
-                <button type="submit" class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition-colors">
+                <button type="submit" class="w-full mt-4 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-lg transition-colors">
                     Guardar Cita
                 </button>
             </form>
