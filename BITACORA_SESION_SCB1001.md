@@ -52,6 +52,14 @@ El primer pase de T-13 fue, en honor a la verdad, un reskin conservador: mismo e
 - **Topbar**: breadcrumb en estilo ruta de archivo monoespaciada (`/dashboard`) en vez de icono+texto genérico.
 - Mismas garantías que el primer pase: cero cambios a `name`/`id`/rutas de formularios, `pytest` 10/10, verificado de nuevo con Chrome DevTools MCP (0 errores, 0 requests externos) y evidencia UI regenerada.
 
+### T-13.2 — Bug preexistente encontrado y corregido: `sales.status` truncaba al revertir una venta
+
+El usuario reportó `500 Internal Server Error` al vender un artículo por POS y luego revertir esa venta — algo que, según indicó, no pasaba antes. El traceback (`psycopg.errors.StringDataRightTruncation: value too long for type character varying(20)`) señaló la causa exacta en `routers/pos.py::revert_pos_sale`: la columna `sales.status` se definió en `src/sql/02_schema.sql` como `VARCHAR(20)` durante la migración SQLite→Postgres de T-05/T-06, pero el código construye un mensaje de auditoría largo (`"REVERTIDA por @usuario el <fecha> | Motivo: <razón>"`) para esa misma columna. SQLite nunca validó la longitud, así que el bug quedó dormido hasta la primera reversión real contra Postgres. **No relacionado con el rediseño de T-13/T-13.1** (no se tocó ningún `.py` ni `.sql` en esas fases).
+
+- Corregido: `status` pasó de `VARCHAR(20)` a `TEXT` en `src/sql/02_schema.sql` (ya no se ejecuta con `init_env.sh` salvo en un volumen vacío) **y** se aplicó en vivo contra `fixit_pg_master` con `ALTER TABLE sales ALTER COLUMN status TYPE TEXT;` (se replica automáticamente a `fixit_pg_replica` vía streaming).
+- Auditoría de todo el código en busca del mismo patrón (string largo construido dinámicamente hacia una columna `VARCHAR` corta): se revisaron todos los `UPDATE ... SET status = ...` y todos los `f"..."` insertados en columnas tipadas de `routers/*.py` y `main.py`. Único caso afectado. `tickets.status` (VARCHAR(30)) y `appointments.status`/`loaners.status` (VARCHAR(20/30)) solo reciben valores fijos cortos de un enum, no strings concatenados — no están en riesgo.
+- Verificación en vivo (no solo el fix puntual): se ejercitó de punta a punta, contra el clúster real, el ciclo completo de tickets (comentario, mano de obra, añadir refacción, cambio de estado, abono parcial, liquidación total con imagen, garantía, factura), inventario (alta, edición, surtido, deducción por venta, merma, vaciado de stock, eliminación), auditoría (revertir merma ✅, revertir surtido con stock insuficiente → bloqueado correctamente con 400, no es un bug), citas/préstamos, usuarios, clientes y base de conocimientos. **0 errores 500 nuevos** en todo el barrido; el único 500 de la sesión fue el ya corregido. `pytest -v tests/test_dba_scb1001.py`: 10/10 después del fix.
+
 ## Estado final
 
 - `fixit_pg_master` (:5432) y `fixit_pg_replica` (:5433) en streaming estable.
