@@ -10,7 +10,7 @@
         <!-- Izquierda: Info principal -->
         <div class="p-8 md:w-1/2 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50">
             <div class="mb-4">
-                <span class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">{{ item.category }}</span>
+                <span class="bg-brand-100 text-brand-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">{{ item.category }}</span>
                 <span class="text-xs text-slate-400 font-mono ml-2">SKU: {{ item.id }}</span>
             </div>
             <h2 class="text-2xl font-black text-slate-900 mb-1">{{ item.name }}</h2>
@@ -19,12 +19,12 @@
             <div class="grid grid-cols-2 gap-4 mb-6">
                 <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                     <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Precio Público</p>
-                    <p class="text-2xl font-black text-emerald-600">${{ "{:,.2f}".format(item.price) }}</p>
+                    <p class="text-2xl font-black text-emerald-600 font-mono tabular-nums">${{ "{:,.2f}".format(item.price) }}</p>
                 </div>
                 {% if user.role == 'ADMIN' %}
                 <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                     <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Costo Taller</p>
-                    <p class="text-2xl font-black text-slate-700">${{ "{:,.2f}".format(item.cost) }}</p>
+                    <p class="text-2xl font-black text-slate-700 font-mono tabular-nums">${{ "{:,.2f}".format(item.cost) }}</p>
                 </div>
                 {% endif %}
             </div>
@@ -35,7 +35,7 @@
                     <p class="text-xl font-bold text-slate-800">{{ item.stock }} Unidades</p>
                 </div>
                 {% if item.stock <= 3 %}
-                <span class="bg-orange-100 text-orange-800 text-xs font-bold px-2 py-1 rounded">¡Bajo Stock!</span>
+                <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded">¡Bajo Stock!</span>
                 {% endif %}
             </div>
         </div>
@@ -43,7 +43,7 @@
         <!-- Derecha: Especificaciones Técnicas -->
         <div class="p-8 md:w-1/2">
             <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 Especificaciones Técnicas
             </h3>
             
