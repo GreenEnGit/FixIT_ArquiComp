@@ -7,7 +7,7 @@
     </div>
 
     {% if ticket_created %}
-    <div class="flex flex-col items-center justify-center p-10 bg-white rounded-xl shadow-sm border border-green-200 text-center animate-fade-in">
+    <div class="flex flex-col items-center justify-center p-10 bg-white rounded-lg border border-green-200 text-center animate-fade-in">
         <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 text-3xl">✅</div>
         <h2 class="text-2xl font-bold text-slate-800">¡Ticket Abierto Exitosamente!</h2>
         <p class="text-slate-600 mt-2">Folio generado: <span class="font-mono font-bold text-brand-700">{{ new_ticket_id }}</span></p>
@@ -26,7 +26,7 @@
     <form action="/intake" method="POST" enctype="multipart/form-data" class="space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-8">
         
         <!-- Cliente -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col transition-all hover:shadow-md">
+        <div class="bg-white rounded-lg border border-slate-200 overflow-hidden flex flex-col transition-all hover:shadow-md">
             <div class="bg-slate-50 px-6 py-4 border-b border-slate-200">
                 <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-3">
                     <span class="bg-brand-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm shadow-sm">1</span> Datos del Cliente
@@ -98,7 +98,7 @@
         </script>
 
         <!-- Dispositivo -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col transition-all hover:shadow-md">
+        <div class="bg-white rounded-lg border border-slate-200 overflow-hidden flex flex-col transition-all hover:shadow-md">
             <div class="bg-slate-50 px-6 py-4 border-b border-slate-200">
                 <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-3">
                     <span class="bg-indigo-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm shadow-sm">2</span> Activo en Resguardo
@@ -139,7 +139,7 @@
         </div>
 
         <!-- Ticket -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col transition-all hover:shadow-md lg:shadow-lg lg:border-brand-100">
+        <div class="bg-white rounded-lg border border-slate-200 overflow-hidden flex flex-col transition-all hover:shadow-md lg:shadow-lg lg:border-brand-100">
             <div class="bg-slate-50 px-6 py-4 border-b border-slate-200">
                 <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-3">
                     <span class="bg-emerald-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm shadow-sm">3</span> Síntoma y Creación
@@ -168,7 +168,7 @@
                     <p class="text-xs text-slate-500 mt-1">Opcional. Sube una o varias fotos del estado del equipo.</p>
                 </div>
                 <div class="pt-2 mt-auto">
-                    <button type="submit" class="w-full py-3.5 px-4 rounded-xl text-white font-bold text-[15px] shadow-md transition-all flex justify-center items-center gap-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 hover:shadow-lg transform hover:-translate-y-0.5">
+                    <button type="submit" class="w-full py-3.5 px-4 rounded-lg text-white font-bold text-[15px] shadow-md transition-all flex justify-center items-center gap-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 hover:shadow-lg transform hover:-translate-y-0.5">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         Crear Ticket Definitivo
                     </button>

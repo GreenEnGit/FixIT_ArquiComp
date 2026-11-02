@@ -41,6 +41,17 @@ Recapitulación de las 12 tareas (T-01 a T-12) ejecutadas sobre `FixIT_ArquiComp
 - REGLA INQUEBRANTABLE respetada: ningún `name`, ruta de formulario ni selector usado por `infra/scripts/capture_evidence.py` o `tests/test_dba_scb1001.py` (`input[name="username"]`, `input[name="password"]`, `button[type="submit"]`, rutas `/login`, `/ticket`, `/inventory/sales`, `/audit`) se tocó.
 - Evidencia regenerada: `evidencias/capturas/ui/UI_01..04.png` con `infra/scripts/capture_evidence.py --ui`, inspeccionadas visualmente. Suite `pytest -v tests/test_dba_scb1001.py`: **10/10** sobre el clúster real recién reaprovisionado (`init_env.sh` + `seed_sqlite_source.py` + `migrate_sqlite_to_pg.py --verify`).
 
+### T-13.1 — Segunda pasada: identidad visual propia (feedback: "se siente igual, solo mejorado")
+
+El primer pase de T-13 fue, en honor a la verdad, un reskin conservador: mismo esqueleto de tarjeta-redondeada + sombra-suave + badge-píldora de siempre, solo con colores/íconos nuevos encima (el patrón genérico "SaaS card kit"). Tras feedback directo del usuario, se hizo una segunda pasada con un lenguaje visual propio inspirado en el dominio real (taller de hardware + consola de servidores/DBA), aplicado en `layout.html` y propagado al resto de plantillas:
+
+- **Forma/sombra**: fuera `rounded-xl`/`shadow-sm` por defecto en tarjetas estáticas; radio máximo `rounded-lg`, bordes de 1px ("hairline"), sombra reservada solo para elementos realmente flotantes (modales, dropdowns, chat).
+- **Panel de lectura ("gauge-panel")**: las tarjetas KPI (Dashboard, Inventario, Reportes) pasan a un panel oscuro `#020617` con barra de acento superior y cifras monoespaciadas con resplandor sutil (`text-shadow`), evocando un multímetro/osciloscopio — es el único lugar del sistema donde se rompe a oscuro sobre fondo claro, usado de forma consistente (no decorativa).
+- **Estados como LED**: los badges de estado de tickets (`tickets_list.html`, `ticket.html`) pasan de píldora de color sólido a punto LED con resplandor (`.led-dot`, `box-shadow: 0 0 6px currentColor`) + etiqueta monoespaciada sobre fondo neutro — como un panel de luces de servidor, no un chip de app genérica.
+- **Sidebar**: textura sutil de rejilla tipo placa base (`.pcb-grid`, gradientes lineales de 24px repetidos a baja opacidad) sobre `slate-950`; el ítem de navegación activo se marca con una barra de acento lateral de 2px en vez de un bloque relleno.
+- **Topbar**: breadcrumb en estilo ruta de archivo monoespaciada (`/dashboard`) en vez de icono+texto genérico.
+- Mismas garantías que el primer pase: cero cambios a `name`/`id`/rutas de formularios, `pytest` 10/10, verificado de nuevo con Chrome DevTools MCP (0 errores, 0 requests externos) y evidencia UI regenerada.
+
 ## Estado final
 
 - `fixit_pg_master` (:5432) y `fixit_pg_replica` (:5433) en streaming estable.

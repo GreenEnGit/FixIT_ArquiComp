@@ -13,41 +13,41 @@
         {% endif %}
     </div>
 
-    <!-- Métricas Clave -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 border-l-4 border-l-brand-500">
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Tickets Activos</h2>
-                <i data-lucide="ticket" class="w-4 h-4 text-brand-400"></i>
+    <!-- Métricas Clave: panel tipo lectura de instrumento -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="gauge-panel rounded-lg p-6" style="--gauge-accent:#6366f1">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest">Tickets Activos</h2>
+                <i data-lucide="ticket" class="w-4 h-4 text-slate-500"></i>
             </div>
-            <p class="text-4xl font-extrabold text-brand-600 font-mono tabular-nums">{{ active_tickets }}</p>
+            <p class="gauge-value text-4xl font-bold text-white font-mono tabular-nums">{{ active_tickets }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 border-l-4 border-l-emerald-500">
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Listos para Entrega</h2>
-                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+        <div class="gauge-panel rounded-lg p-6" style="--gauge-accent:#10b981">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest">Listos p/ Entrega</h2>
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-slate-500"></i>
             </div>
-            <p class="text-4xl font-extrabold text-emerald-600 font-mono tabular-nums">{{ ready_tickets }}</p>
+            <p class="gauge-value text-4xl font-bold text-white font-mono tabular-nums">{{ ready_tickets }}</p>
         </div>
 
         {% if user.role == 'ADMIN' %}
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 border-l-4 border-l-indigo-500">
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Valor Inventario</h2>
-                <i data-lucide="warehouse" class="w-4 h-4 text-indigo-400"></i>
+        <div class="gauge-panel rounded-lg p-6" style="--gauge-accent:#818cf8">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest">Valor Inventario</h2>
+                <i data-lucide="warehouse" class="w-4 h-4 text-slate-500"></i>
             </div>
-            <p class="text-2xl font-extrabold text-indigo-600 font-mono tabular-nums">${{ "{:,.2f}".format(inventory_value) }}</p>
+            <p class="gauge-value text-2xl font-bold text-white font-mono tabular-nums">${{ "{:,.2f}".format(inventory_value) }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 border-l-4 border-l-slate-500">
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider" title="Ingresos Totales - Costos Base">Rentabilidad Real</h2>
-                <i data-lucide="trending-up" class="w-4 h-4 text-slate-400"></i>
+        <div class="gauge-panel rounded-lg p-6" style="--gauge-accent:#f59e0b">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest" title="Ingresos Totales - Costos Base">Rentabilidad Real</h2>
+                <i data-lucide="trending-up" class="w-4 h-4 text-slate-500"></i>
             </div>
-            <p class="text-2xl font-extrabold text-slate-800 font-mono tabular-nums">${{ "{:,.2f}".format(net_profit) }}</p>
+            <p class="gauge-value text-2xl font-bold text-white font-mono tabular-nums">${{ "{:,.2f}".format(net_profit) }}</p>
         </div>
         {% else %}
         <!-- Placeholder para mantener la cuadrícula si es técnico -->
-        <div class="bg-slate-100 rounded-xl border border-dashed border-slate-300 p-6 flex items-center justify-center col-span-2 gap-2">
+        <div class="bg-slate-100 rounded-lg border border-dashed border-slate-300 p-6 flex items-center justify-center col-span-2 gap-2">
             <i data-lucide="lock" class="w-4 h-4 text-slate-400"></i>
             <p class="text-slate-400 text-sm font-medium">Métricas financieras ocultas para tu rol.</p>
         </div>
@@ -58,7 +58,7 @@
     <div class="grid grid-cols-1 {% if user.role == 'ADMIN' %}lg:grid-cols-3{% else %}lg:grid-cols-2{% endif %} gap-8 mb-8">
 
         <!-- Gráfica 1: Distribución de Tickets por Estatus -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
+        <div class="bg-white rounded-lg border border-slate-200 p-6 flex flex-col">
             <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-brand-500"></span>
                 Tickets por Estatus
@@ -67,7 +67,7 @@
         </div>
 
         <!-- Gráfica 2: Top 5 Componentes con Menor Stock -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
+        <div class="bg-white rounded-lg border border-slate-200 p-6 flex flex-col">
             <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-amber-500"></span>
                 Componentes con Menor Stock
@@ -77,7 +77,7 @@
 
         <!-- Gráfica 3: Composición de Ingresos (Solo ADMIN) -->
         {% if user.role == 'ADMIN' %}
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
+        <div class="bg-white rounded-lg border border-slate-200 p-6 flex flex-col">
             <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                 Composición de Ingresos
@@ -91,7 +91,7 @@
 
         <!-- Alertas de Stock Bajo (Solo ADMIN) -->
         {% if user.role == 'ADMIN' %}
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+        <div class="bg-white rounded-lg border border-slate-200 overflow-hidden flex flex-col">
             <div class="bg-rose-50/60 px-6 py-4 border-b border-rose-100">
                 <h2 class="text-sm font-bold text-rose-800 uppercase tracking-wider flex items-center gap-2">
                     <i data-lucide="alert-triangle" class="w-4 h-4"></i>
@@ -123,7 +123,7 @@
         {% endif %}
 
         <!-- Últimos Movimientos -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col {% if user.role != 'ADMIN' %}lg:col-span-2{% endif %}">
+        <div class="bg-white rounded-lg border border-slate-200 overflow-hidden flex flex-col {% if user.role != 'ADMIN' %}lg:col-span-2{% endif %}">
             <div class="bg-slate-50 px-6 py-4 border-b border-slate-200">
                 <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider">Últimos Movimientos de Tickets</h2>
             </div>

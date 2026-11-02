@@ -7,7 +7,7 @@
     </div>
 
     <!-- Tarjeta de Perfil -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-8 flex items-center justify-between">
+    <div class="bg-white rounded-lg border border-slate-200 p-8 mb-8 flex items-center justify-between">
         <div class="flex items-center gap-6">
             <div class="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-3xl font-bold">
                 {{ customer.name[0] | upper }}
@@ -35,7 +35,7 @@
     </div>
 
     <!-- Formulario de Edición -->
-    <div id="edit-form" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8 hidden">
+    <div id="edit-form" class="bg-white rounded-lg border border-slate-200 p-6 mb-8 hidden">
         <h3 class="text-lg font-bold text-slate-800 mb-4">Editar Información del Cliente</h3>
         <form action="/customer/{{ customer.id }}/edit" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -71,7 +71,7 @@
     <h3 class="text-xl font-bold text-slate-800 mb-4">Historial de Reparaciones</h3>
     <div class="space-y-4">
         {% for t in tickets %}
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex justify-between items-center hover:shadow-md transition-shadow">
+        <div class="bg-white rounded-lg border border-slate-200 p-6 flex justify-between items-center hover:shadow-md transition-shadow">
             <div>
                 <div class="flex items-center gap-3 mb-2">
                     <span class="font-mono font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded text-sm">{{ t.id }}</span>
