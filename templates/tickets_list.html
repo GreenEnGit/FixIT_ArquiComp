@@ -13,23 +13,23 @@
     </div>
 
     <!-- Barra de herramientas: búsqueda y filtros rápidos -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+    <div class="bg-white rounded-lg border border-slate-200 p-4 mb-4 flex flex-col sm:flex-row gap-3 sm:items-center">
         <div class="relative flex-1 max-w-sm">
             <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
             <input type="text" id="ticketSearchInput" x-model="q" placeholder="Buscar folio, cliente, equipo..." class="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
         </div>
         <div class="flex flex-wrap gap-2">
-            <button @click="status = 'ALL'" :class="status === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Todos</button>
-            <button @click="status = 'RECIBIDO'" :class="status === 'RECIBIDO' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'" class="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Recibido</button>
-            <button @click="status = 'EN DIAGNÓSTICO'" :class="status === 'EN DIAGNÓSTICO' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'" class="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">En Diagnóstico</button>
-            <button @click="status = 'ESPERANDO PIEZAS'" :class="status === 'ESPERANDO PIEZAS' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'" class="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Esperando Piezas</button>
-            <button @click="status = 'EN REPARACIÓN'" :class="status === 'EN REPARACIÓN' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'" class="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">En Reparación</button>
-            <button @click="status = 'LISTO PARA ENTREGA'" :class="status === 'LISTO PARA ENTREGA' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'" class="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Listo</button>
-            <button @click="status = 'ENTREGADO Y PAGADO'" :class="status === 'ENTREGADO Y PAGADO' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'" class="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Entregado</button>
+            <button @click="status = 'ALL'" :class="status === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors">Todos</button>
+            <button @click="status = 'RECIBIDO'" :class="status === 'RECIBIDO' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors">Recibido</button>
+            <button @click="status = 'EN DIAGNÓSTICO'" :class="status === 'EN DIAGNÓSTICO' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors">En Diagnóstico</button>
+            <button @click="status = 'ESPERANDO PIEZAS'" :class="status === 'ESPERANDO PIEZAS' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors">Esperando Piezas</button>
+            <button @click="status = 'EN REPARACIÓN'" :class="status === 'EN REPARACIÓN' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors">En Reparación</button>
+            <button @click="status = 'LISTO PARA ENTREGA'" :class="status === 'LISTO PARA ENTREGA' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors">Listo</button>
+            <button @click="status = 'ENTREGADO Y PAGADO'" :class="status === 'ENTREGADO Y PAGADO' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors">Entregado</button>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
@@ -56,19 +56,19 @@
                         <td class="p-4 text-slate-500 whitespace-nowrap">{{ t.date }}</td>
                         <td class="p-4 text-center">
                             {% if t.status == 'RECIBIDO' %}
-                                <span class="bg-blue-100 text-blue-700 font-bold px-3 py-1 rounded-full text-[10px] uppercase tracking-wide">Recibido</span>
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-mono font-bold uppercase tracking-wide text-slate-700"><span class="w-1.5 h-1.5 rounded-full bg-blue-500 led-dot text-blue-500 shrink-0"></span>Recibido</span>
                             {% elif t.status == 'EN DIAGNÓSTICO' %}
-                                <span class="bg-amber-100 text-amber-700 font-bold px-3 py-1 rounded-full text-[10px] uppercase tracking-wide">En Diagnóstico</span>
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-mono font-bold uppercase tracking-wide text-slate-700"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 led-dot text-amber-500 shrink-0"></span>En Diagnóstico</span>
                             {% elif t.status == 'ESPERANDO PIEZAS' %}
-                                <span class="bg-amber-100 text-amber-800 font-bold px-3 py-1 rounded-full text-[10px] uppercase tracking-wide">Esperando Piezas</span>
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-mono font-bold uppercase tracking-wide text-slate-700"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 led-dot text-amber-500 shrink-0"></span>Esperando Piezas</span>
                             {% elif t.status == 'EN REPARACIÓN' %}
-                                <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-3 py-1 rounded-full text-[10px] uppercase tracking-wide">En Reparación</span>
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-mono font-bold uppercase tracking-wide text-slate-700"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500 led-dot text-indigo-500 shrink-0"></span>En Reparación</span>
                             {% elif t.status == 'LISTO PARA ENTREGA' %}
-                                <span class="bg-emerald-100 text-emerald-700 font-bold px-3 py-1 rounded-full text-[10px] uppercase tracking-wide animate-pulse">Listo para Entrega</span>
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-[10px] font-mono font-bold uppercase tracking-wide text-emerald-800"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 led-dot text-emerald-500 shrink-0 animate-pulse"></span>Listo</span>
                             {% elif t.status == 'ENTREGADO Y PAGADO' %}
-                                <span class="bg-emerald-600 text-white font-bold px-3 py-1 rounded-full text-[10px] uppercase tracking-wide">Completado</span>
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-800 text-[10px] font-mono font-bold uppercase tracking-wide text-white"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 led-dot text-emerald-400 shrink-0"></span>Completado</span>
                             {% else %}
-                                <span class="bg-rose-100 text-rose-700 font-bold px-3 py-1 rounded-full text-[10px] uppercase tracking-wide">{{ t.status }}</span>
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-mono font-bold uppercase tracking-wide text-slate-700"><span class="w-1.5 h-1.5 rounded-full bg-rose-500 led-dot text-rose-500 shrink-0"></span>{{ t.status }}</span>
                             {% endif %}
                         </td>
                         <td class="p-4 text-right">

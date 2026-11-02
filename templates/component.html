@@ -6,7 +6,7 @@
         <h1 class="text-3xl font-bold text-slate-900">Detalle del Componente</h1>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row">
+    <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row">
         <!-- Izquierda: Info principal -->
         <div class="p-8 md:w-1/2 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50">
             <div class="mb-4">
@@ -17,19 +17,19 @@
             <p class="text-slate-500 font-medium mb-6">Marca: {{ item.brand }}</p>
             
             <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                     <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Precio Público</p>
                     <p class="text-2xl font-black text-emerald-600 font-mono tabular-nums">${{ "{:,.2f}".format(item.price) }}</p>
                 </div>
                 {% if user.role == 'ADMIN' %}
-                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                     <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Costo Taller</p>
                     <p class="text-2xl font-black text-slate-700 font-mono tabular-nums">${{ "{:,.2f}".format(item.cost) }}</p>
                 </div>
                 {% endif %}
             </div>
 
-            <div class="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                 <div>
                     <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Stock Actual</p>
                     <p class="text-xl font-bold text-slate-800">{{ item.stock }} Unidades</p>
@@ -48,7 +48,7 @@
             </h3>
             
             {% if specs %}
-            <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
+            <div class="bg-slate-50 rounded-lg border border-slate-200 p-4">
                 <dl class="divide-y divide-slate-200">
                     {% for key, value in specs.items() %}
                     <div class="py-3 flex justify-between">
@@ -59,18 +59,18 @@
                 </dl>
             </div>
             {% else %}
-            <div class="p-4 bg-slate-50 text-slate-500 italic rounded-xl border border-slate-200">
+            <div class="p-4 bg-slate-50 text-slate-500 italic rounded-lg border border-slate-200">
                 No hay especificaciones detalladas para este componente.
             </div>
             {% endif %}
 
             <div class="mt-8 flex gap-3">
-                <a href="/inventory/barcode/{{ item.id }}" target="_blank" class="flex-1 bg-indigo-50 text-indigo-700 font-bold py-3 rounded-xl border border-indigo-200 text-center hover:bg-indigo-100 transition-colors shadow-sm">
+                <a href="/inventory/barcode/{{ item.id }}" target="_blank" class="flex-1 bg-indigo-50 text-indigo-700 font-bold py-3 rounded-lg border border-indigo-200 text-center hover:bg-indigo-100 transition-colors shadow-sm">
                     🖨️ Imprimir Etiqueta
                 </a>
                 {% if user.role == 'ADMIN' %}
                 <form action="/inventory/component/{{ item.id }}/order" method="POST" class="flex-1">
-                    <button type="submit" class="w-full h-full bg-emerald-600 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center gap-2">
+                    <button type="submit" class="w-full h-full bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center gap-2">
                         📦 Solicitar a Proveedor (+10)
                     </button>
                 </form>

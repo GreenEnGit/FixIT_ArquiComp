@@ -16,28 +16,28 @@
         </button>
     </div>
 
-    <!-- Tarjetas de resumen -->
+    <!-- Tarjetas de resumen: panel tipo lectura de instrumento -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+        <div class="gauge-panel rounded-lg p-5 flex items-center justify-between" style="--gauge-accent:#6366f1">
             <div>
-                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total SKUs</p>
-                <p class="text-2xl font-extrabold text-slate-900 font-mono tabular-nums">{{ items|length }}</p>
+                <p class="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest">Total SKUs</p>
+                <p class="gauge-value text-2xl font-bold text-white font-mono tabular-nums">{{ items|length }}</p>
             </div>
-            <i data-lucide="boxes" class="w-7 h-7 text-brand-400"></i>
+            <i data-lucide="boxes" class="w-6 h-6 text-slate-500"></i>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+        <div class="gauge-panel rounded-lg p-5 flex items-center justify-between" style="--gauge-accent:#f43f5e">
             <div>
-                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Stock Crítico</p>
-                <p class="text-2xl font-extrabold text-rose-600 font-mono tabular-nums">{{ ns.critical }}</p>
+                <p class="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest">Stock Crítico</p>
+                <p class="gauge-value text-2xl font-bold text-white font-mono tabular-nums">{{ ns.critical }}</p>
             </div>
-            <i data-lucide="alert-triangle" class="w-7 h-7 text-rose-400"></i>
+            <i data-lucide="alert-triangle" class="w-6 h-6 text-slate-500"></i>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+        <div class="gauge-panel rounded-lg p-5 flex items-center justify-between" style="--gauge-accent:#10b981">
             <div>
-                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Valor de Inventario</p>
-                <p class="text-2xl font-extrabold text-emerald-600 font-mono tabular-nums">${{ "{:,.2f}".format(ns.total_value) }}</p>
+                <p class="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest">Valor de Inventario</p>
+                <p class="gauge-value text-2xl font-bold text-white font-mono tabular-nums">${{ "{:,.2f}".format(ns.total_value) }}</p>
             </div>
-            <i data-lucide="warehouse" class="w-7 h-7 text-emerald-400"></i>
+            <i data-lucide="warehouse" class="w-6 h-6 text-slate-500"></i>
         </div>
     </div>
 
@@ -46,10 +46,10 @@
         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
         </div>
-        <input type="text" id="inventorySearchInput" x-model="q" placeholder="Búsqueda rápida por nombre, marca o SKU..." class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors">
+        <input type="text" id="inventorySearchInput" x-model="q" placeholder="Búsqueda rápida por nombre, marca o SKU..." class="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors">
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto max-h-[60vh] overflow-y-auto">
             <table class="w-full text-left border-collapse" id="inventoryTable">
             <thead>
@@ -93,11 +93,11 @@
                     </td>
                     <td class="p-4">
                         {% if item.stock > 3 %}
-                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 font-mono tabular-nums"><i data-lucide="check-circle-2" class="w-3 h-3"></i> {{ item.stock }} uds</span>
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-emerald-50 border border-emerald-200 text-emerald-700 font-mono tabular-nums"><i data-lucide="check-circle-2" class="w-3 h-3"></i> {{ item.stock }} uds</span>
                         {% elif item.stock > 0 %}
-                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 font-mono tabular-nums"><i data-lucide="alert-triangle" class="w-3 h-3"></i> {{ item.stock }} uds (Bajo)</span>
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-50 border border-amber-200 text-amber-800 font-mono tabular-nums"><i data-lucide="alert-triangle" class="w-3 h-3"></i> {{ item.stock }} uds (Bajo)</span>
                         {% else %}
-                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-800"><i data-lucide="alert-triangle" class="w-3 h-3"></i> Agotado</span>
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-rose-50 border border-rose-200 text-rose-800"><i data-lucide="alert-triangle" class="w-3 h-3"></i> Agotado</span>
                         {% endif %}
                     </td>
 
@@ -125,7 +125,7 @@
 
     <!-- Modal Nuevo Artículo -->
     <div id="newItemModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden">
             <div class="bg-emerald-50 px-6 py-4 border-b border-emerald-100 flex justify-between items-center">
                 <h2 class="font-bold text-emerald-900">Ingresar Stock Inicial</h2>
                 <button onclick="document.getElementById('newItemModal').classList.add('hidden')" class="text-emerald-400 hover:text-emerald-600">
@@ -175,7 +175,7 @@
     </div>
     <!-- Modal Deducir Artículo -->
     <div id="deductModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
             <div class="bg-brand-50 px-6 py-4 border-b border-brand-100 flex justify-between items-center">
                 <h2 class="font-bold text-brand-900">Registrar Movimiento (POS)</h2>
                 <button type="button" onclick="document.getElementById('deductModal').classList.add('hidden')" class="text-brand-400 hover:text-brand-600">
@@ -208,7 +208,7 @@
 
     <!-- Modal Editar Artículo -->
     <div id="editModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden">
             <div class="bg-brand-50 px-6 py-4 border-b border-brand-100 flex justify-between items-center">
                 <h2 class="font-bold text-brand-900">Editar Componente / Producto</h2>
                 <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')" class="text-brand-400 hover:text-brand-600">
@@ -255,7 +255,7 @@
 
     <!-- Modal Surtir/Restock Artículo -->
     <div id="restockModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
             <div class="bg-emerald-50 px-6 py-4 border-b border-emerald-100 flex justify-between items-center">
                 <h2 class="font-bold text-emerald-900">Abastecer / Surtir Stock</h2>
                 <button type="button" onclick="document.getElementById('restockModal').classList.add('hidden')" class="text-emerald-400 hover:text-emerald-600">
