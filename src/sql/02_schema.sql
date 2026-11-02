@@ -177,7 +177,7 @@ CREATE TABLE sales (
     date        TIMESTAMP     NOT NULL,
     branch_id   VARCHAR(20)   NOT NULL REFERENCES branches(id),
     username    VARCHAR(50)   NOT NULL REFERENCES users(username),
-    status      VARCHAR(20)   NOT NULL DEFAULT 'COMPLETADA'
+    status      TEXT          NOT NULL DEFAULT 'COMPLETADA'
 ) TABLESPACE ts_transaccional;
 
 CREATE TABLE sale_items (
