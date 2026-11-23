@@ -14,8 +14,11 @@ logger = logging.getLogger("fixit")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "")
 if not SECRET_KEY:
-    SECRET_KEY = "dev_default_key_change_in_production_fixit_2026"
-    logger.warning("⚠️  SECRET_KEY no está configurada en .env. Usando clave por defecto (NO USAR EN PRODUCCIÓN).")
+    # Nunca una clave fija publicada en el código: se genera una aleatoria por
+    # proceso (las sesiones se invalidan al reiniciar). init_env.sh la persiste en .env.
+    import secrets
+    SECRET_KEY = secrets.token_hex(32)
+    logger.warning("⚠️  SECRET_KEY no está configurada en .env. Se generó una temporal; ejecuta init_env.sh.")
 ALGORITHM = "HS256"
 
 templates = Jinja2Templates(directory="templates")

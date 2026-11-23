@@ -71,7 +71,8 @@ CREATE TABLE inventory (
     stock       INTEGER       NOT NULL CHECK (stock >= 0),
     cost        NUMERIC(10,2) NOT NULL,
     price       NUMERIC(10,2) NOT NULL,
-    branch_id   VARCHAR(20)   NOT NULL REFERENCES branches(id)
+    branch_id   VARCHAR(20)   NOT NULL REFERENCES branches(id),
+    image_path  VARCHAR(255)
 ) TABLESPACE ts_transaccional;
 
 CREATE TABLE purchase_orders (

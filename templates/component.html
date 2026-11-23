@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "_product_img.html" import product_img %}
 {% block content %}
 <div class="max-w-4xl mx-auto">
     <div class="flex items-center gap-4 mb-6">
@@ -9,6 +10,14 @@
     <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row">
         <!-- Izquierda: Info principal -->
         <div class="p-8 md:w-1/2 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50">
+            <div class="mb-6 rounded-lg border border-slate-200 bg-white p-4 flex items-center justify-center">
+                {{ product_img(item, 'w-full max-w-xs aspect-square', 'w-16 h-16') }}
+            </div>
+            {% if credit %}
+            <p class="-mt-4 mb-5 text-[10px] text-slate-400 leading-snug">
+                Foto: {{ credit.artist }} · <a href="{{ credit.page }}" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-600">{{ credit.license }}</a> · imagen ilustrativa
+            </p>
+            {% endif %}
             <div class="mb-4">
                 <span class="bg-brand-100 text-brand-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">{{ item.category }}</span>
                 <span class="text-xs text-slate-400 font-mono ml-2">SKU: {{ item.id }}</span>

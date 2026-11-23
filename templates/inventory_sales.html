@@ -1,18 +1,31 @@
 {% extends "layout.html" %}
+{% from "_product_img.html" import product_img %}
 {% block content %}
+{% set categories = [
+    ('RAM', 'Memoria RAM'), ('ALMACENAMIENTO', 'Almacenamiento'), ('CPU', 'Procesadores'),
+    ('GPU', 'Tarjetas de video'), ('MOTHERBOARD', 'Tarjetas madre'), ('FUENTE', 'Fuentes de poder'),
+    ('ENFRIAMIENTO', 'Enfriamiento'), ('GABINETE', 'Gabinetes'), ('MONITOR', 'Monitores'),
+    ('PERIFERICO', 'Periféricos'), ('RED', 'Redes'), ('ACCESORIO', 'Cables y accesorios'),
+    ('BATERIA', 'Baterías'), ('ENERGIA', 'Cargadores'), ('CONSUMIBLE', 'Consumibles'),
+    ('HERRAMIENTA', 'Herramientas')
+] %}
 {% set ns = namespace(total_value=0, critical=0) %}
 {% for item in items %}
     {% set ns.total_value = ns.total_value + (item.stock * item.cost) %}
     {% if item.stock <= 3 %}{% set ns.critical = ns.critical + 1 %}{% endif %}
 {% endfor %}
-<div class="max-w-7xl mx-auto" x-data="{ q: '' }">
-    <div class="flex justify-between items-center mb-6">
+{% set present = items | map(attribute='category') | unique | list %}
+<div class="max-w-7xl mx-auto"
+     x-data="{ q: '', cat: '', view: (() => { try { return localStorage.getItem('inv-view') || 'grid' } catch (e) { return 'grid' } })(),
+               setView(v) { this.view = v; try { localStorage.setItem('inv-view', v) } catch (e) {} },
+               match(el) { return el.dataset.search.includes(this.q.toLowerCase()) && (!this.cat || el.dataset.cat === this.cat) } }">
+    <div class="flex flex-wrap gap-4 justify-between items-center mb-6">
         <div>
             <h1 class="text-2xl font-bold text-slate-900">Stock de Componentes</h1>
-            <p class="text-sm text-slate-500 mt-1">Gestión de inventario de refacciones y productos en la sucursal.</p>
+            <p class="text-sm text-slate-500 mt-1">Catálogo de refacciones y productos de la sucursal.</p>
         </div>
         <button onclick="document.getElementById('newItemModal').classList.remove('hidden')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-bold shadow-sm transition-colors flex items-center gap-2">
-            <i data-lucide="plus" class="w-4 h-4"></i> Registrar Stock Inicial
+            <i data-lucide="plus" class="w-4 h-4"></i> Registrar Producto
         </button>
     </div>
 
@@ -41,21 +54,80 @@
         </div>
     </div>
 
-    <!-- Barra de Búsqueda (Alpine.js) -->
-    <div class="mb-4 relative">
-        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+    <!-- Búsqueda + selector de vista -->
+    <div class="mb-3 flex flex-col sm:flex-row gap-3">
+        <div class="relative flex-1">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+            </div>
+            <input type="text" id="inventorySearchInput" x-model="q" placeholder="Búsqueda rápida por nombre, marca o SKU..." class="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors">
         </div>
-        <input type="text" id="inventorySearchInput" x-model="q" placeholder="Búsqueda rápida por nombre, marca o SKU..." class="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors">
+        <div class="inline-flex rounded-lg border border-slate-300 bg-white p-1 shadow-sm self-start" role="group" aria-label="Tipo de vista">
+            <button type="button" @click="setView('grid')" :class="view === 'grid' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'" class="px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-1.5 transition-colors">
+                <i data-lucide="layout-grid" class="w-4 h-4"></i> Tarjetas
+            </button>
+            <button type="button" @click="setView('table')" :class="view === 'table' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'" class="px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-1.5 transition-colors">
+                <i data-lucide="table-2" class="w-4 h-4"></i> Tabla
+            </button>
+        </div>
     </div>
 
-    <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
+    <!-- Filtro por categoría -->
+    <div class="mb-5 flex gap-2 overflow-x-auto pb-1">
+        <button type="button" @click="cat = ''" :class="cat === '' ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-slate-600 border-slate-300 hover:border-brand-400'" class="shrink-0 px-3 py-1.5 rounded-full border text-xs font-bold transition-colors">Todas</button>
+        {% for code, label in categories if code in present %}
+        <button type="button" @click="cat = '{{ code }}'" :class="cat === '{{ code }}' ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-slate-600 border-slate-300 hover:border-brand-400'" class="shrink-0 px-3 py-1.5 rounded-full border text-xs font-bold transition-colors">{{ label }}</button>
+        {% endfor %}
+    </div>
+
+    <!-- Vista de tarjetas -->
+    <div x-show="view === 'grid'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {% for item in items %}
+        <div class="inventory-card bg-white rounded-lg border border-slate-200 overflow-hidden flex flex-col hover:shadow-md hover:border-brand-300 transition-all"
+             data-search="{{ (item.id ~ ' ' ~ item.name ~ ' ' ~ item.brand) | lower }}" data-cat="{{ item.category }}"
+             x-show="match($el)">
+            <a href="/inventory/component/{{ item.id }}" class="relative block bg-white p-4 border-b border-slate-100 group">
+                {{ product_img(item, 'w-full h-40 group-hover:scale-105 transition-transform duration-300', 'w-12 h-12') }}
+                {% if item.stock == 0 %}
+                <span class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white">Agotado</span>
+                {% elif item.stock <= 3 %}
+                <span class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">Stock bajo</span>
+                {% endif %}
+            </a>
+            <div class="p-4 flex flex-col flex-1">
+                <p class="text-[10px] font-mono text-slate-400">{{ item.id }}</p>
+                <a href="/inventory/component/{{ item.id }}" class="font-bold text-slate-900 leading-tight hover:text-brand-600">{{ item.name }}</a>
+                <p class="text-[11px] text-slate-500 font-medium mt-0.5">{{ item.brand }} · {{ item.category }}</p>
+                <div class="mt-3 flex items-end justify-between">
+                    <span class="text-lg font-black text-emerald-600 font-mono tabular-nums">${{ "{:,.2f}".format(item.price) }}</span>
+                    <span class="text-xs font-mono tabular-nums px-2 py-0.5 rounded bg-slate-100 text-slate-600">{{ item.stock }} uds</span>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-100 grid grid-cols-3 gap-2">
+                    <button type="button" onclick="openEditModal(this.dataset)" data-id="{{ item.id }}" data-name="{{ item.name }}" data-brand="{{ item.brand }}" data-category="{{ item.category }}" data-cost="{{ item.cost }}" data-price="{{ item.price }}" class="px-2 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded border border-brand-200 font-bold text-[11px] flex items-center justify-center gap-1">
+                        <i data-lucide="pencil" class="w-3 h-3"></i> Editar
+                    </button>
+                    <button type="button" onclick="openRestockModal(this.dataset)" data-id="{{ item.id }}" data-name="{{ item.name }}" data-cost="{{ item.cost }}" data-price="{{ item.price }}" class="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded border border-emerald-200 font-bold text-[11px] flex items-center justify-center gap-1">
+                        <i data-lucide="plus" class="w-3 h-3"></i> Surtir
+                    </button>
+                    <button type="button" onclick="openDeductModal(this.dataset)" data-id="{{ item.id }}" data-name="{{ item.name }}" {% if item.stock == 0 %}disabled{% endif %} class="px-2 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded border border-slate-300 font-bold text-[11px] flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="minus-circle" class="w-3 h-3"></i> Deducir
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-span-full p-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">No hay inventario en esta sucursal.</div>
+        {% endfor %}
+    </div>
+
+    <!-- Vista de tabla -->
+    <div x-show="view === 'table'" class="bg-white rounded-lg border border-slate-200 overflow-hidden" style="display: none;">
         <div class="overflow-x-auto max-h-[60vh] overflow-y-auto">
             <table class="w-full text-left border-collapse" id="inventoryTable">
             <thead>
                 <tr class="bg-slate-50 border-b border-slate-200 text-sm text-slate-600">
-                    <th class="p-4 font-semibold">SKU / Etiqueta</th>
                     <th class="p-4 font-semibold">Producto</th>
+                    <th class="p-4 font-semibold">SKU / Etiqueta</th>
                     <th class="p-4 font-semibold">Stock</th>
                     <th class="p-4 font-semibold text-right text-indigo-600">Costo Taller</th>
                     <th class="p-4 font-semibold text-right">Precio Público</th>
@@ -65,31 +137,34 @@
             <tbody class="divide-y divide-slate-200 text-sm">
                 {% for item in items %}
                 <tr class="hover:bg-slate-50 transition-colors inventory-row"
-                    data-search="{{ (item.id ~ ' ' ~ item.name ~ ' ' ~ item.brand) | lower }}"
-                    x-show="$el.dataset.search.includes(q.toLowerCase())">
+                    data-search="{{ (item.id ~ ' ' ~ item.name ~ ' ' ~ item.brand) | lower }}" data-cat="{{ item.category }}"
+                    x-show="match($el)">
+                    <td class="p-4 search-target">
+                        <div class="flex items-center gap-3">
+                            <a href="/inventory/component/{{ item.id }}" class="shrink-0">{{ product_img(item, 'w-14 h-14 border border-slate-200', 'w-6 h-6') }}</a>
+                            <div>
+                                <a href="/inventory/component/{{ item.id }}" class="font-bold text-slate-900 product-name hover:text-brand-600">{{ item.name }}</a>
+                                <div class="text-[11px] text-slate-500 font-medium product-brand mb-2">{{ item.brand }} | {{ item.category }}</div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="openEditModal(this.dataset)" data-id="{{ item.id }}" data-name="{{ item.name }}" data-brand="{{ item.brand }}" data-category="{{ item.category }}" data-cost="{{ item.cost }}" data-price="{{ item.price }}" class="px-2 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded border border-brand-200 font-bold text-[10px] transition-all flex items-center gap-1 cursor-pointer">
+                                        <i data-lucide="pencil" class="w-3 h-3"></i> Editar
+                                    </button>
+                                    <button type="button" onclick="openRestockModal(this.dataset)" data-id="{{ item.id }}" data-name="{{ item.name }}" data-cost="{{ item.cost }}" data-price="{{ item.price }}" class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded border border-emerald-200 font-bold text-[10px] transition-all flex items-center gap-1 cursor-pointer">
+                                        <i data-lucide="plus" class="w-3 h-3"></i> Surtir Stock
+                                    </button>
+                                    <button type="button" onclick="confirmClearToMerma(this.dataset)" data-id="{{ item.id }}" data-name="{{ item.name }}" data-stock="{{ item.stock }}" {% if item.stock == 0 %}disabled{% endif %} class="px-2 py-1 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-700 rounded border border-rose-200 font-bold text-[10px] transition-all flex items-center gap-1 cursor-pointer">
+                                        <i data-lucide="trash-2" class="w-3 h-3"></i> Vaciar Stock
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
                     <td class="p-4 font-mono text-xs text-slate-500">
                         {{ item.id }}<br>
                         <a href="/inventory/barcode/{{ item.id }}" target="_blank" class="inline-flex items-center gap-1 text-[10px] uppercase font-bold text-slate-400 hover:text-brand-600 mt-1" title="Imprimir Etiqueta de Código de Barras">
                             <i data-lucide="barcode" class="w-3 h-3"></i>
                             Imprimir Etiqueta
                         </a>
-                    </td>
-                    <td class="p-4 search-target">
-                        <div class="font-bold text-slate-900 product-name mb-0.5">{{ item.name }}</div>
-                        <div class="text-[11px] text-slate-500 font-medium product-brand mb-2">{{ item.brand }} | {{ item.category }}</div>
-
-                        <!-- Acciones Principales y Visibles Directamente! -->
-                        <div class="flex items-center gap-2">
-                            <button onclick="openEditModal('{{ item.id }}', '{{ item.name }}', '{{ item.brand }}', '{{ item.category }}', '{{ item.cost }}', '{{ item.price }}')" class="px-2 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded border border-brand-200 font-bold text-[10px] transition-all flex items-center gap-1 cursor-pointer">
-                                <i data-lucide="pencil" class="w-3 h-3"></i> Editar
-                            </button>
-                            <button onclick="openRestockModal('{{ item.id }}', '{{ item.name }}', '{{ item.cost }}', '{{ item.price }}')" class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded border border-emerald-200 font-bold text-[10px] transition-all flex items-center gap-1 cursor-pointer">
-                                <i data-lucide="plus" class="w-3 h-3"></i> Surtir Stock
-                            </button>
-                            <button onclick="confirmClearToMerma('{{ item.id }}', '{{ item.name }}', {{ item.stock }})" {% if item.stock == 0 %}disabled{% endif %} class="px-2 py-1 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-700 rounded border border-rose-200 font-bold text-[10px] transition-all flex items-center gap-1 cursor-pointer">
-                                <i data-lucide="trash-2" class="w-3 h-3"></i> Vaciar Stock
-                            </button>
-                        </div>
                     </td>
                     <td class="p-4">
                         {% if item.stock > 3 %}
@@ -105,7 +180,7 @@
 
                     <td class="p-4 text-right font-black text-emerald-600 font-mono tabular-nums">${{ "{:,.2f}".format(item.price) }}</td>
                     <td class="p-4 text-center">
-                        <button onclick="openDeductModal('{{ item.id }}', '{{ item.name }}')" {% if item.stock == 0 %}disabled{% endif %} class="px-3 py-1.5 bg-white text-brand-600 rounded-lg border border-brand-200 hover:bg-brand-50 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs transition-colors whitespace-nowrap inline-flex items-center gap-1">
+                        <button type="button" onclick="openDeductModal(this.dataset)" data-id="{{ item.id }}" data-name="{{ item.name }}" {% if item.stock == 0 %}disabled{% endif %} class="px-3 py-1.5 bg-white text-brand-600 rounded-lg border border-brand-200 hover:bg-brand-50 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs transition-colors whitespace-nowrap inline-flex items-center gap-1">
                             <i data-lucide="minus-circle" class="w-3.5 h-3.5"></i> Deducir (Venta/Merma)
                         </button>
                     </td>
@@ -116,11 +191,11 @@
             </tbody>
             </table>
         </div>
+    </div>
 
-        <!-- Mensaje sin resultados de búsqueda -->
-        <div x-show="q.length > 0 && ![...document.querySelectorAll('.inventory-row')].some(r => r.dataset.search.includes(q.toLowerCase()))" class="p-8 text-center text-slate-500 bg-slate-50 border-t border-slate-200" style="display: none;">
-            No se encontraron componentes que coincidan con tu búsqueda.
-        </div>
+    <!-- Mensaje sin resultados de búsqueda/filtro -->
+    <div x-show="(q.length > 0 || cat) && ![...document.querySelectorAll('.inventory-card')].some(el => match(el))" class="mt-4 p-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200" style="display: none;">
+        No se encontraron componentes que coincidan con tu búsqueda.
     </div>
 
     <!-- Modal Nuevo Artículo -->
@@ -132,7 +207,7 @@
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
-            <form action="/inventory/new" method="POST" class="p-6 space-y-4">
+            <form action="/inventory/new" method="POST" enctype="multipart/form-data" class="p-6 space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">
                         <label class="block text-sm font-semibold text-slate-700 mb-1">Nombre Comercial</label>
@@ -145,13 +220,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1">Categoría</label>
                         <select name="category" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
-                            <option value="RAM">Memoria RAM</option>
-                            <option value="ALMACENAMIENTO">Almacenamiento (SSD/HDD)</option>
-                            <option value="MOTHERBOARD">Tarjeta Madre</option>
-                            <option value="CPU">Procesador</option>
-                            <option value="GPU">Tarjeta de Video</option>
-                            <option value="FUENTE">Fuente de Poder</option>
-                            <option value="CONSUMIBLE">Consumible</option>
+                            {% for code, label in categories %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
                         </select>
                     </div>
                     <div>
@@ -165,6 +234,11 @@
                     <div class="col-span-2">
                         <label class="block text-sm font-semibold text-slate-700 mb-1">Stock Inicial (Piezas Físicas)</label>
                         <input type="number" name="stock" min="0" placeholder="Ej: 10" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Foto del producto <span class="font-normal text-slate-400">(opcional · JPG, PNG o WebP, máx. 8 MB)</span></label>
+                        <input type="file" name="image" accept="image/jpeg,image/png,image/webp" class="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:font-semibold file:text-slate-700 hover:file:bg-slate-200">
+                        <span class="text-[10px] text-slate-400 block mt-0.5">La imagen se valida y se recodifica automáticamente.</span>
                     </div>
                 </div>
                 <button type="submit" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition-colors">
@@ -215,7 +289,7 @@
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
-            <form id="editForm" action="" method="POST" class="p-6 space-y-4">
+            <form id="editForm" action="" method="POST" enctype="multipart/form-data" class="p-6 space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">
                         <label class="block text-sm font-semibold text-slate-700 mb-1">Nombre Comercial</label>
@@ -228,13 +302,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1">Categoría</label>
                         <select name="category" id="editCategory" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
-                            <option value="RAM">Memoria RAM</option>
-                            <option value="ALMACENAMIENTO">Almacenamiento (SSD/HDD)</option>
-                            <option value="MOTHERBOARD">Tarjeta Madre</option>
-                            <option value="CPU">Procesador</option>
-                            <option value="GPU">Tarjeta de Video</option>
-                            <option value="FUENTE">Fuente de Poder</option>
-                            <option value="CONSUMIBLE">Consumible</option>
+                            {% for code, label in categories %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
                         </select>
                     </div>
                     <div>
@@ -244,6 +312,11 @@
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1">Precio Venta Público ($)</label>
                         <input type="number" step="0.01" min="0" name="price" id="editPrice" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Foto del producto <span class="font-normal text-slate-400">(opcional, reemplaza la actual · JPG, PNG o WebP, máx. 8 MB)</span></label>
+                        <input type="file" name="image" accept="image/jpeg,image/png,image/webp" class="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:font-semibold file:text-slate-700 hover:file:bg-slate-200">
+                        <span class="text-[10px] text-slate-400 block mt-0.5">La imagen se valida y se recodifica automáticamente.</span>
                     </div>
                 </div>
                 <button type="submit" class="w-full mt-4 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-lg transition-colors">
@@ -291,38 +364,39 @@
 </div>
 
 <script>
-function openEditModal(itemId, itemName, itemBrand, itemCategory, currentCost, currentPrice) {
-    document.getElementById('editForm').action = "/inventory/item/" + itemId + "/edit";
-    document.getElementById('editName').value = itemName;
-    document.getElementById('editBrand').value = itemBrand;
-    document.getElementById('editCategory').value = itemCategory;
-    document.getElementById('editCost').value = currentCost;
-    document.getElementById('editPrice').value = currentPrice;
+function openEditModal(d) {
+    document.getElementById('editForm').action = "/inventory/item/" + encodeURIComponent(d.id) + "/edit";
+    document.getElementById('editName').value = d.name;
+    document.getElementById('editBrand').value = d.brand;
+    document.getElementById('editCategory').value = d.category;
+    document.getElementById('editCost').value = d.cost;
+    document.getElementById('editPrice').value = d.price;
     document.getElementById('editModal').classList.remove('hidden');
 }
 
-function openRestockModal(itemId, itemName, currentCost, currentPrice) {
-    document.getElementById('restockForm').action = "/inventory/restock/" + itemId;
-    document.getElementById('restockItemName').textContent = itemName;
-    document.getElementById('restockCost').value = currentCost;
-    document.getElementById('restockPrice').value = currentPrice;
+function openRestockModal(d) {
+    document.getElementById('restockForm').action = "/inventory/restock/" + encodeURIComponent(d.id);
+    document.getElementById('restockItemName').textContent = d.name;
+    document.getElementById('restockCost').value = d.cost;
+    document.getElementById('restockPrice').value = d.price;
     document.getElementById('restockModal').classList.remove('hidden');
 }
 
-function confirmClearToMerma(itemId, itemName, stockQty) {
+function confirmClearToMerma(d) {
+    const stockQty = parseInt(d.stock, 10);
     if (stockQty <= 0) return;
-    if (confirm("¿Estás seguro de vaciar el stock de '" + itemName + "'? Se registrarán " + stockQty + " unidades como merma. Esta acción se puede revertir desde el Registro de Auditoría.")) {
+    if (confirm("¿Estás seguro de vaciar el stock de '" + d.name + "'? Se registrarán " + stockQty + " unidades como merma. Esta acción se puede revertir desde el Registro de Auditoría.")) {
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = '/inventory/item/' + itemId + '/clear-to-merma';
+        form.action = '/inventory/item/' + encodeURIComponent(d.id) + '/clear-to-merma';
         document.body.appendChild(form);
         form.submit();
     }
 }
 
-function openDeductModal(itemId, itemName) {
-    document.getElementById('deductForm').action = "/inventory/deduct/" + itemId;
-    document.getElementById('deductItemName').textContent = itemName;
+function openDeductModal(d) {
+    document.getElementById('deductForm').action = "/inventory/deduct/" + encodeURIComponent(d.id);
+    document.getElementById('deductItemName').textContent = d.name;
     document.getElementById('deductModal').classList.remove('hidden');
     toggleDetails();
 }

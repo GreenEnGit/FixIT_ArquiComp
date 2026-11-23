@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FixIT - Multi-Sucursal e IA</title>
+    <meta name="description" content="FixIT: sistema académico de gestión de taller de reparación e inventario (proyecto SCB-1001).">
     <link rel="icon" type="image/png" href="/static/img/logo-32x32.png">
     <script src="/static/tailwindcss.js"></script>
     <script>
@@ -47,6 +48,11 @@
             background: linear-gradient(90deg, var(--gauge-accent, #6366f1), transparent 85%);
         }
         .gauge-value { text-shadow: 0 0 18px var(--gauge-accent, rgba(99,102,241,0.55)); }
+        /* Menú lateral: mosaico de color por módulo */
+        .nav-tile { background: color-mix(in srgb, var(--tile) 16%, transparent); color: var(--tile); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tile) 30%, transparent); }
+        .nav-link:hover .nav-tile { background: color-mix(in srgb, var(--tile) 26%, transparent); }
+        .nav-link.is-active { background: rgba(255, 255, 255, 0.07); color: #fff; }
+        .nav-link.is-active .nav-tile { background: var(--tile); color: #fff; box-shadow: 0 0 14px -2px var(--tile); }
         /* Indicador LED para estados */
         .led-dot { box-shadow: 0 0 6px 1px currentColor; }
 
@@ -67,7 +73,7 @@
                 padding-left: 0.5rem !important;
                 padding-right: 0.5rem !important;
             }
-            body.sidebar-collapsed nav a {
+            body.sidebar-collapsed #sidebar-nav a {
                 justify-content: center !important;
                 padding-left: 0 !important;
                 padding-right: 0 !important;
@@ -168,53 +174,56 @@
             </div>
         </div>
 
-        <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
-            <a href="/" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i> <span class="sidebar-text">Dashboard</span>
-            </a>
-            <a href="/reports" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="bar-chart-3" class="w-4 h-4 shrink-0"></i> <span class="sidebar-text">Reportes Financieros</span>
-            </a>
-            <a href="/appointments" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="calendar-clock" class="w-4 h-4 shrink-0"></i> <span class="sidebar-text">Portal de Citas</span>
-            </a>
-            <a href="/ticket" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="ticket" class="w-4 h-4 shrink-0"></i> <span class="sidebar-text">Gestión de Tickets</span>
-            </a>
-            <a href="/intake" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="package-plus" class="w-4 h-4 shrink-0"></i> <span class="sidebar-text">Recepción Rápida</span>
-            </a>
-
-            <div class="px-4 py-2 text-xs font-semibold text-slate-500 mt-4 sidebar-section-header tracking-wide">Gestión de Taller</div>
-            <a href="/customers" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="contact" class="w-4 h-4 shrink-0 text-brand-400"></i> <span class="sidebar-text">Directorio Clientes</span>
-            </a>
-            <a href="/pos" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="shopping-cart" class="w-4 h-4 shrink-0 text-amber-400"></i> <span class="sidebar-text">Punto de Venta (POS)</span>
-            </a>
-            <a href="/inventory/sales" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="cpu" class="w-4 h-4 shrink-0 text-emerald-400"></i> <span class="sidebar-text">Stock Componentes</span>
-            </a>
-            <a href="/devices" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="hard-drive" class="w-4 h-4 shrink-0 text-indigo-400"></i> <span class="sidebar-text">Resguardo Dispositivos</span>
-            </a>
-
-            <div class="px-4 py-2 text-xs font-semibold text-slate-500 mt-4 sidebar-section-header tracking-wide">Herramientas</div>
-            <a href="/knowledge" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="book-open" class="w-4 h-4 shrink-0"></i> <span class="sidebar-text">Base de Conocimientos</span>
-            </a>
-            <a href="/profile" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="user-circle" class="w-4 h-4 shrink-0"></i> <span class="sidebar-text">Personalizar Perfil</span>
-            </a>
-
-            {% if user.role == 'ADMIN' %}
-            <a href="/users" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="users" class="w-4 h-4 shrink-0"></i> <span class="sidebar-text">Personal y Seguridad</span>
-            </a>
-            <a href="/audit" class="nav-link flex items-center gap-3 pl-[14px] pr-4 py-2.5 border-l-2 border-transparent hover:border-brand-500 hover:bg-white/5 transition-colors text-slate-400 hover:text-white text-sm">
-                <i data-lucide="shield-check" class="w-4 h-4 shrink-0"></i> <span class="sidebar-text">Auditoría Global</span>
-            </a>
-            {% endif %}
+        {% set nav_groups = [
+            ('Panel', [
+                ('/', 'layout-dashboard', 'Dashboard', 'Resumen del negocio', '#6366f1', ''),
+                ('/reports', 'bar-chart-3', 'Reportes', 'Ingresos y utilidad', '#8b5cf6', ''),
+            ]),
+            ('Taller', [
+                ('/intake', 'package-plus', 'Recepción rápida', 'Registrar un equipo', '#0ea5e9', ''),
+                ('/ticket', 'ticket', 'Tickets', 'Órdenes de servicio', '#3b82f6', 'tickets'),
+                ('/appointments', 'calendar-clock', 'Citas', 'Agenda y préstamos', '#06b6d4', 'citas'),
+                ('/devices', 'hard-drive', 'Resguardo', 'Equipos en custodia', '#14b8a6', ''),
+                ('/customers', 'contact', 'Clientes', 'Directorio', '#64748b', ''),
+            ]),
+            ('Tienda', [
+                ('/pos', 'shopping-cart', 'Punto de venta', 'Cobro en mostrador', '#f59e0b', ''),
+                ('/inventory/sales', 'cpu', 'Inventario', 'Catálogo con fotos', '#10b981', 'stock'),
+            ]),
+            ('Herramientas', [
+                ('/knowledge', 'book-open', 'Conocimientos', 'Guías de reparación', '#d946ef', ''),
+                ('/profile', 'user-circle', 'Mi perfil', 'Cuenta y contraseña', '#94a3b8', ''),
+            ]),
+        ] %}
+        {% if user.role == 'ADMIN' %}
+            {% set nav_groups = nav_groups + [('Administración', [
+                ('/users', 'users', 'Personal', 'Usuarios y roles', '#f43f5e', ''),
+                ('/audit', 'shield-check', 'Auditoría', 'Bitácora global', '#ef4444', ''),
+            ])] %}
+        {% endif %}
+        <nav id="sidebar-nav" class="flex-1 px-3 py-3 overflow-y-auto" aria-label="Menú principal">
+            {% for group, links in nav_groups %}
+            <div class="{% if not loop.first %}mt-4{% endif %}">
+                <p class="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 sidebar-section-header">{{ group }}</p>
+                <div class="space-y-0.5">
+                {% for href, icon, label, desc, color, badge in links %}
+                    <a href="{{ href }}" title="{{ label }}" style="--tile: {{ color }}"
+                       class="nav-link group flex items-center gap-3 px-2 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition-colors">
+                        <span class="nav-tile w-9 h-9 shrink-0 rounded-lg flex items-center justify-center transition-colors">
+                            <i data-lucide="{{ icon }}" class="w-[18px] h-[18px]"></i>
+                        </span>
+                        <span class="sidebar-text flex-1 min-w-0 leading-tight">
+                            <span class="block text-sm font-semibold truncate">{{ label }}</span>
+                            <span class="block text-[11px] text-slate-500 group-hover:text-slate-400 truncate">{{ desc }}</span>
+                        </span>
+                        {% if badge %}
+                        <span data-badge="{{ badge }}" class="sidebar-text hidden min-w-[1.5rem] px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono text-center tabular-nums"></span>
+                        {% endif %}
+                    </a>
+                {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
         </nav>
 
         <!-- Badge técnico del clúster -->
@@ -302,16 +311,28 @@
                 }
             }
 
-            // Active menu link styling
+            // Módulo activo en el menú
             const currentPath = window.location.pathname;
-            const navLinks = document.querySelectorAll('nav a');
-            navLinks.forEach(link => {
+            document.querySelectorAll('#sidebar-nav a').forEach(link => {
                 const href = link.getAttribute('href');
                 if (href === currentPath || (href !== '/' && currentPath.startsWith(href))) {
-                    link.classList.remove('text-slate-400', 'border-transparent');
-                    link.classList.add('bg-white/5', 'text-white', 'font-semibold', 'border-brand-500');
+                    link.classList.add('is-active');
+                    link.setAttribute('aria-current', 'page');
                 }
             });
+
+            // Contadores en vivo del menú (tickets activos, stock crítico, citas pendientes)
+            fetch('/api/nav-counts').then(r => r.ok ? r.json() : null).then(counts => {
+                if (!counts) return;
+                const styles = { tickets: 'bg-blue-500/20 text-blue-300', stock: 'bg-rose-500/20 text-rose-300', citas: 'bg-cyan-500/20 text-cyan-300' };
+                document.querySelectorAll('[data-badge]').forEach(el => {
+                    const n = counts[el.dataset.badge];
+                    if (!n) return;
+                    el.textContent = n;
+                    el.className += ' ' + styles[el.dataset.badge];
+                    el.classList.remove('hidden');
+                });
+            }).catch(() => {});
 
             // Breadcrumb a partir de la ruta actual (estilo ruta de archivo)
             const crumbEl = document.getElementById('breadcrumb-current');
@@ -369,6 +390,9 @@
 
     <script>
         let searchTimeout = null;
+        function escapeAttr(v) {
+            return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        }
         async function debounceGlobalSearch() {
             clearTimeout(searchTimeout);
             const q = document.getElementById("globalSearchInput").value;
@@ -389,12 +413,15 @@
                 } else {
                     results.forEach(item => {
                         resContainer.innerHTML += `
-                            <a href="/inventory/component/${item.id}" class="block p-4 hover:bg-slate-50 transition-colors flex justify-between items-center group">
-                                <div>
-                                    <p class="font-bold text-slate-800 group-hover:text-brand-600 transition-colors">${item.name}</p>
-                                    <p class="text-xs text-slate-400 font-mono mt-1">SKU: ${item.id} | Stock: ${item.stock}</p>
+                            <a href="/inventory/component/${encodeURIComponent(item.id)}" class="block p-3 hover:bg-slate-50 transition-colors flex items-center gap-3 group">
+                                ${item.image_path
+                                    ? `<img src="${escapeAttr(item.image_path)}" alt="" class="w-10 h-10 object-contain rounded border border-slate-200 bg-white shrink-0">`
+                                    : `<span class="w-10 h-10 rounded bg-slate-100 shrink-0"></span>`}
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-bold text-slate-800 group-hover:text-brand-600 transition-colors truncate">${escapeAttr(item.name)}</p>
+                                    <p class="text-xs text-slate-400 font-mono mt-0.5">SKU: ${escapeAttr(item.id)} | Stock: ${item.stock}</p>
                                 </div>
-                                <span class="bg-brand-50 text-brand-600 text-[10px] font-bold px-2 py-1 rounded-md font-mono uppercase tracking-wider">${item.category}</span>
+                                <span class="bg-brand-50 text-brand-600 text-[10px] font-bold px-2 py-1 rounded-md font-mono uppercase tracking-wider">${escapeAttr(item.category)}</span>
                             </a>
                         `;
                     });
@@ -469,7 +496,7 @@
             document.getElementById('chat-window').classList.remove('hidden');
 
             // Añadir mensaje del usuario
-            messagesDiv.innerHTML += `<div class="bg-brand-600 text-white p-3 rounded-lg rounded-tr-none shadow-sm ml-auto w-11/12 text-sm">${msgText}</div>`;
+            messagesDiv.innerHTML += `<div class="bg-brand-600 text-white p-3 rounded-lg rounded-tr-none shadow-sm ml-auto w-11/12 text-sm">${escapeAttr(msgText)}</div>`;
             input.value = '';
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
@@ -490,7 +517,7 @@
 
                 // Remover typing y mostrar respuesta
                 document.getElementById(typingId).remove();
-                messagesDiv.innerHTML += `<div class="bg-emerald-50 border border-emerald-100 p-3 rounded-lg rounded-tl-none shadow-sm text-slate-800 self-start w-11/12 text-sm whitespace-pre-wrap">${data.reply}</div>`;
+                messagesDiv.innerHTML += `<div class="bg-emerald-50 border border-emerald-100 p-3 rounded-lg rounded-tl-none shadow-sm text-slate-800 self-start w-11/12 text-sm whitespace-pre-wrap">${escapeAttr(data.reply)}</div>`;
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
                 sessionStorage.setItem("fixit_ai_chat", messagesDiv.innerHTML);

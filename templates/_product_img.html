@@ -1,0 +1,17 @@
+{# Foto del producto, o un icono por categoría si el artículo no tiene imagen. #}
+{% set _category_icons = {
+    'RAM': 'memory-stick', 'ALMACENAMIENTO': 'hard-drive', 'CPU': 'cpu', 'GPU': 'gpu',
+    'MOTHERBOARD': 'circuit-board', 'FUENTE': 'plug-zap', 'ENFRIAMIENTO': 'fan',
+    'ACCESORIO': 'cable', 'CONSUMIBLE': 'droplets', 'RED': 'wifi', 'BATERIA': 'battery-charging',
+    'PERIFERICO': 'keyboard', 'HERRAMIENTA': 'wrench', 'MONITOR': 'monitor', 'ENERGIA': 'plug',
+    'GABINETE': 'box'
+} %}
+{% macro product_img(item, cls='w-14 h-14', icon_cls='w-6 h-6') -%}
+{% if item.image_path %}
+<img src="{{ item.image_path }}" alt="{{ item.name }}" loading="lazy" class="{{ cls }} object-contain bg-white rounded-md">
+{% else %}
+<div class="{{ cls }} rounded-md bg-slate-100 text-slate-400 flex items-center justify-center" role="img" aria-label="{{ item.name }}">
+    <i data-lucide="{{ _category_icons.get(item.category, 'package') }}" class="{{ icon_cls }}"></i>
+</div>
+{% endif %}
+{%- endmacro %}

@@ -1,12 +1,36 @@
-from fastapi import APIRouter, Request, Depends, Form, HTTPException
+from fastapi import APIRouter, Request, Depends, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 import sqlite3
 import json
+import os
 import uuid
+from functools import lru_cache
 from datetime import datetime
 from dependencies import templates, get_db_conn, get_current_user, require_admin
+from image_utils import save_product_image
 
 router = APIRouter(prefix="/inventory")
+_CREDITS_PATH = os.path.join("static", "img", "products", "creditos.json")
+
+
+@lru_cache(maxsize=1)
+def _photo_credits() -> dict:
+    """Autor y licencia de las fotos del catálogo de ejemplo (requerido por CC BY / BY-SA)."""
+    try:
+        with open(_CREDITS_PATH, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+
+async def _store_image(item_id: str, image) -> str | None:
+    """Guarda la imagen subida (opcional) ya validada y recodificada; None si no se envió."""
+    if image is None or not image.filename:
+        return None
+    try:
+        return save_product_image(item_id, await image.read())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 @router.get("/sales", response_class=HTMLResponse)
 async def inventory_sales(request: Request, branch_id: str = None, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -18,15 +42,16 @@ async def inventory_sales(request: Request, branch_id: str = None, user: dict = 
     return templates.TemplateResponse("inventory_sales.html", {"request": request, "user": user, "items": branch_inventory, "selected_branch": target_branch})
 
 @router.post("/new", response_class=RedirectResponse)
-async def create_inventory(request: Request, name: str = Form(...), brand: str = Form(...), category: str = Form(...), cost: float = Form(...), price: float = Form(...), stock: int = Form(...), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
+async def create_inventory(request: Request, name: str = Form(...), brand: str = Form(...), category: str = Form(...), cost: float = Form(...), price: float = Form(...), stock: int = Form(...), image: UploadFile = File(None), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
     if cost < 0 or price < 0 or stock < 0:
         raise HTTPException(status_code=400, detail="El costo, precio o stock no pueden ser negativos.")
         
     c = db.cursor()
 
     new_id = f"ITM-{uuid.uuid4().hex[:8].upper()}"
-    c.execute("INSERT INTO inventory (id, name, brand, category, specs, stock, cost, price, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-              (new_id, name, brand, category, "{}", stock, cost, price, user["branch_id"]))
+    image_path = await _store_image(new_id, image)
+    c.execute("INSERT INTO inventory (id, name, brand, category, specs, stock, cost, price, branch_id, image_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              (new_id, name, brand, category, "{}", stock, cost, price, user["branch_id"], image_path))
     db.commit()
     return RedirectResponse(url="/inventory/sales", status_code=303)
 
@@ -37,14 +62,16 @@ async def view_component(request: Request, item_id: str, user: dict = Depends(ge
     item = c.fetchone()
     if not item:
         raise HTTPException(status_code=404, detail="El componente que buscas fue eliminado o no existe.")
-    specs = {}
-    if item["specs"]:
+    # specs es JSONB: psycopg ya lo entrega como dict; se acepta texto por compatibilidad.
+    specs = item["specs"] or {}
+    if isinstance(specs, str):
         try:
-            specs = json.loads(item["specs"])
+            specs = json.loads(specs)
         except (json.JSONDecodeError, ValueError):
-            pass
+            specs = {}
             
-    return templates.TemplateResponse("component.html", {"request": request, "user": user, "item": item, "specs": specs})
+    credit = _photo_credits().get(item["id"]) if (item["image_path"] or "").startswith("/static/img/products/") else None
+    return templates.TemplateResponse("component.html", {"request": request, "user": user, "item": item, "specs": specs, "credit": credit})
 
 @router.get("/barcode/{item_id}", response_class=HTMLResponse)
 async def view_barcode(request: Request, item_id: str, db: sqlite3.Connection = Depends(get_db_conn)):
@@ -162,11 +189,11 @@ async def search_components(q: str, user: dict = Depends(get_current_user), db: 
     c = db.cursor()
     search_query = f"%{q}%"
     c.execute("""
-        SELECT id, name, category, stock 
+        SELECT id, name, category, stock, image_path
         FROM inventory 
-        WHERE branch_id = ? AND (name LIKE ? OR category LIKE ? OR id LIKE ?) 
+        WHERE branch_id = ? AND (name ILIKE ? OR brand ILIKE ? OR category ILIKE ? OR id ILIKE ?) 
         LIMIT 10
-    """, (user["branch_id"], search_query, search_query, search_query))
+    """, (user["branch_id"],) + (search_query,) * 4)
     return JSONResponse([dict(row) for row in c.fetchall()])
 
 @router.post("/component/{item_id}/order", response_class=RedirectResponse)
@@ -208,6 +235,7 @@ async def edit_inventory_item(
     category: str = Form(...),
     cost: float = Form(...),
     price: float = Form(...),
+    image: UploadFile = File(None),
     user: dict = Depends(get_current_user),
     db: sqlite3.Connection = Depends(get_db_conn)
 ):
@@ -221,9 +249,17 @@ async def edit_inventory_item(
     if not item:
         raise HTTPException(status_code=404, detail="El artículo no existe en esta sucursal.")
         
+    new_image = await _store_image(item_id, image)
+    image_path = new_image or item["image_path"]
+    old_image = item["image_path"] or ""
+    if new_image and old_image.startswith("/static/uploads/products/"):
+        # Borra la foto subida anterior; nunca toca las del catálogo versionado.
+        old_file = os.path.realpath(old_image.lstrip("/"))
+        if old_file.startswith(os.path.realpath("static/uploads/products") + os.sep) and os.path.isfile(old_file):
+            os.remove(old_file)
     c.execute(
-        "UPDATE inventory SET name = ?, brand = ?, category = ?, cost = ?, price = ? WHERE id = ? AND branch_id = ?",
-        (name, brand, category, cost, price, item_id, user["branch_id"])
+        "UPDATE inventory SET name = ?, brand = ?, category = ?, cost = ?, price = ?, image_path = ? WHERE id = ? AND branch_id = ?",
+        (name, brand, category, cost, price, image_path, item_id, user["branch_id"])
     )
     db.commit()
     return RedirectResponse(url="/inventory/sales", status_code=303)

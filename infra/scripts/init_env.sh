@@ -98,6 +98,18 @@ sed -i "s/^PGUSER=.*/PGUSER=admin_sys/" "$PROJECT_DIR/.env"
 sed -i "s/^PGPASSWORD=.*/PGPASSWORD=${ADMIN_SYS_PASSWORD}/" "$PROJECT_DIR/.env"
 echo "[OK] Sincronizado PGUSER/PGPASSWORD en $PROJECT_DIR/.env con infra/.env"
 
+# SECRET_KEY firma las cookies de sesion (JWT). Si esta vacia la app usaria una
+# clave por defecto publicada en el codigo, asi que se genera una aleatoria.
+if ! grep -qE '^SECRET_KEY="?[^"[:space:]]{16,}' "$PROJECT_DIR/.env"; then
+  secret_key=$(openssl rand -hex 32)
+  if grep -q '^SECRET_KEY=' "$PROJECT_DIR/.env"; then
+    sed -i "s/^SECRET_KEY=.*/SECRET_KEY=${secret_key}/" "$PROJECT_DIR/.env"
+  else
+    echo "SECRET_KEY=${secret_key}" >> "$PROJECT_DIR/.env"
+  fi
+  echo "[OK] SECRET_KEY aleatoria generada en $PROJECT_DIR/.env"
+fi
+
 echo ""
 echo "--- Procedimiento general de instalacion (U2.T2.S6) ---"
 # Solo el maestro: fixit_pg_replica se levanta via setup_replication.sh,

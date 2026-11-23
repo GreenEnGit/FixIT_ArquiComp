@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "_product_img.html" import product_img %}
 {% block content %}
 <div class="max-w-7xl mx-auto">
     <div class="mb-8 flex justify-between items-end">
@@ -102,11 +103,14 @@
                 {% if low_stock_items %}
                 <ul class="divide-y divide-slate-100">
                     {% for item in low_stock_items %}
-                    <li class="p-4 flex justify-between items-center hover:bg-slate-50">
-                        <div>
-                            <p class="font-medium text-slate-900">{{ item.name }}</p>
-                            <p class="text-xs text-slate-500 font-mono">{{ item.id }}</p>
-                        </div>
+                    <li class="p-4 flex justify-between items-center gap-3 hover:bg-slate-50">
+                        <a href="/inventory/component/{{ item.id }}" class="flex items-center gap-3 min-w-0">
+                            {{ product_img(item, 'w-11 h-11 shrink-0 border border-slate-200', 'w-5 h-5') }}
+                            <div class="min-w-0">
+                                <p class="font-medium text-slate-900 truncate">{{ item.name }}</p>
+                                <p class="text-xs text-slate-500 font-mono">{{ item.id }}</p>
+                            </div>
+                        </a>
                         <div class="text-right">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold font-mono tabular-nums {% if item.stock == 0 %}bg-rose-100 text-rose-800{% else %}bg-amber-100 text-amber-800{% endif %}">
                                 Stock: {{ item.stock }}

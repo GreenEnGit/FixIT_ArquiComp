@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 import os
 import shutil
 import uuid
@@ -47,6 +47,19 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
         return RedirectResponse(url="/login")
     return templates.TemplateResponse("error.html", {"request": request, "status_code": exc.status_code, "detail": exc.detail}, status_code=exc.status_code)
+
+@app.get("/api/nav-counts")
+async def nav_counts(user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
+    """Contadores del menú lateral para la sucursal activa."""
+    c = db.cursor()
+    c.execute("""
+        SELECT
+          (SELECT COUNT(*) FROM tickets WHERE branch_id = ? AND status NOT IN ('LISTO PARA ENTREGA', 'ENTREGADO Y PAGADO')) AS tickets,
+          (SELECT COUNT(*) FROM inventory WHERE branch_id = ? AND stock <= 3) AS stock,
+          (SELECT COUNT(*) FROM appointments WHERE branch_id = ? AND status = 'PENDIENTE') AS citas
+    """, (user["branch_id"],) * 3)
+    return JSONResponse(dict(c.fetchone()))
+
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):

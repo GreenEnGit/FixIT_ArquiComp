@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "_product_img.html" import product_img %}
 {% block content %}
 <div class="flex flex-col lg:flex-row gap-6 h-auto">
     <!-- Izquierda: Catálogo y Buscador -->
@@ -15,20 +16,28 @@
         <div class="flex-1 overflow-y-auto p-4 bg-slate-50/50">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4" id="posGrid">
                 {% for item in items %}
-                <div class="pos-item bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col justify-between h-full"
+                <div class="pos-item group bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:border-brand-300 transition-all cursor-pointer flex flex-col h-full"
                      data-id="{{ item.id }}"
                      data-name="{{ item.name }}"
                      data-price="{{ item.price }}"
                      data-stock="{{ item.stock }}"
                      onclick="handleItemClick(this)">
+                    <div class="relative bg-white border-b border-slate-100 p-3 flex items-center justify-center">
+                        {{ product_img(item, 'w-full h-32 group-hover:scale-105 transition-transform duration-300', 'w-10 h-10') }}
+                        <span class="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-brand-600 text-white text-[10px] font-bold px-2 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <i data-lucide="plus" class="w-3 h-3"></i> Agregar
+                        </span>
+                    </div>
+                    <div class="p-4 flex flex-col justify-between flex-1">
                     <div>
                         <div class="text-xs text-slate-400 font-mono mb-1 pos-sku">{{ item.id }}</div>
                         <h3 class="font-bold text-slate-800 text-sm leading-tight mb-1 pos-name">{{ item.name }}</h3>
                         <p class="text-[10px] uppercase font-semibold text-brand-600 mb-2 pos-brand">{{ item.brand }}</p>
                     </div>
                     <div class="flex justify-between items-end mt-2">
-                        <span class="text-xs font-medium px-2 py-1 bg-slate-100 rounded text-slate-600 font-mono tabular-nums">Stock: {{ item.stock }}</span>
+                        <span class="text-xs font-medium px-2 py-1 bg-slate-100 rounded text-slate-600 font-mono tabular-nums whitespace-nowrap">Stock: {{ item.stock }}</span>
                         <span class="font-black text-emerald-600 font-mono tabular-nums">${{ "{:,.2f}".format(item.price) }}</span>
+                    </div>
                     </div>
                 </div>
                 {% else %}

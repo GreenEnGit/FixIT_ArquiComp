@@ -48,6 +48,10 @@ Toda operación de DBA descrita en este repositorio (instalación, tablespaces, 
 - 📱 Gestión de tickets de reparación por estados (Recibido → Entregado y Pagado)
 - 🛒 Punto de venta (POS) integrado con el inventario
 - 📦 Control de inventario con especificaciones en JSONB
+- 🖼️ Catálogo de 33 productos de ejemplo con foto (vista de tarjetas o tabla, filtro por categoría y buscador global con miniaturas); créditos y licencias en [`static/img/products/CREDITOS.md`](static/img/products/CREDITOS.md)
+- 🛡️ Subida de fotos de producto validada: firma del archivo, decodificación completa con límite anti *decompression bomb* y recodificación a WebP sin metadatos (`image_utils.py`)
+- 🧭 Menú lateral por áreas (Panel, Taller, Tienda, Herramientas, Administración) con contadores en vivo de tickets activos, stock crítico y citas pendientes
+- 💾 Respaldo descargable desde *Personal y Seguridad* generado con `pg_dump` de la base real
 - 👥 CRM de clientes y dispositivos
 - 🔐 RBAC multi-sucursal con cuotas de espacio por rol a nivel de PostgreSQL
 - 🔔 Notificaciones SMS vía Twilio (opcional, simuladas en consola si no se configura)

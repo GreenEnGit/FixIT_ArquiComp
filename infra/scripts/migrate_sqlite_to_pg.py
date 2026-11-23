@@ -95,6 +95,17 @@ def migrate():
                 f"(SELECT MAX(id) FROM {table}) IS NOT NULL)"
             )
 
+    # Las ventas de mostrador se reflejan en audit_logs (VENTA_DIRECTA, igual que
+    # hace routers/pos.py al cobrar); como audit_logs no se migra, se reconstruye
+    # esa parte de la bitacora a partir de sales/sale_items ya migradas.
+    pcur.execute("""
+        INSERT INTO audit_logs (username, action, item_id, details, monetary_impact, date, branch_id)
+        SELECT s.username, 'VENTA_DIRECTA', si.item_id, 'Ticket #' || s.id, si.subtotal, s.date, s.branch_id
+        FROM sales s JOIN sale_items si ON si.sale_id = s.id
+        WHERE s.status = 'COMPLETADA'
+    """)
+    print(f"[OK] audit_logs: {pcur.rowcount} ventas POS reconstruidas en la bitacora")
+
     pconn.commit()
     pcur.close()
     pconn.close()

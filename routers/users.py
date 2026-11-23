@@ -1,3 +1,5 @@
+import database
+import os
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 import sqlite3
@@ -87,15 +89,22 @@ async def update_profile(request: Request, username: str = Form(...), current_pa
 
 @router.get("/users/backup", response_class=Response)
 async def download_backup(user: dict = Depends(get_current_user)):
+    """Respaldo lógico real de PostgreSQL (pg_dump) de la base que usa la app."""
     if user["role"] != "ADMIN":
         raise HTTPException(status_code=403, detail="No autorizado")
-    import os
-    db_path = "taller_prototipo.db"
-    if not os.path.exists(db_path):
-        raise HTTPException(status_code=404, detail="Database not found")
-    with open(db_path, "rb") as f:
-        content = f.read()
-    return Response(content=content, media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename=FixIT_Backup_{os.path.basename(db_path)}"})
+    import subprocess
+    env = {**os.environ, "PGPASSWORD": database.PG_PASSWORD}
+    cmd = ["pg_dump", "-h", database.PG_HOST, "-p", str(database.PG_PORT), "-U", database.PG_USER,
+           "--no-owner", "--no-privileges", database.PG_DATABASE]
+    try:
+        result = subprocess.run(cmd, env=env, capture_output=True, timeout=120, check=True)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="pg_dump no está instalado en el servidor.")
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        raise HTTPException(status_code=500, detail="No se pudo generar el respaldo de PostgreSQL.")
+    filename = f"FixIT_Backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql"
+    return Response(content=result.stdout, media_type="application/sql",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 @router.post("/users/{user_id}/delete", response_class=RedirectResponse)
 async def delete_user(user_id: int, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
