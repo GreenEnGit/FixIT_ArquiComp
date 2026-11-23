@@ -2,7 +2,7 @@
 
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16.4-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Podman](https://img.shields.io/badge/Podman-4.9.3-892CA0?style=for-the-badge&logo=podman&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-005571?style=for-the-badge&logo=fastapi)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-005571?style=for-the-badge&logo=fastapi)
 ![Python](https://img.shields.io/badge/Python-3.12.3-3776AB?style=for-the-badge&logo=python&logoColor=white)
 
 > [!WARNING]
@@ -47,11 +47,13 @@ Toda operación de DBA descrita en este repositorio (instalación, tablespaces, 
 
 - 📱 Gestión de tickets de reparación por estados (Recibido → Entregado y Pagado)
 - 🛒 Punto de venta (POS) integrado con el inventario
-- 📦 Control de inventario con especificaciones en JSONB
+- 📦 Inventario multi-sucursal en 3FN: catálogo maestro `products` (en `ts_catalogos`) y existencias, costo y precio por sucursal en `inventory` (PK `id` + `branch_id`), unidos por la vista `v_inventory`
 - 🖼️ Catálogo de 33 productos de ejemplo con foto (vista de tarjetas o tabla, filtro por categoría y buscador global con miniaturas); créditos y licencias en [`static/img/products/CREDITOS.md`](static/img/products/CREDITOS.md)
 - 🛡️ Subida de fotos de producto validada: firma del archivo, decodificación completa con límite anti *decompression bomb* y recodificación a WebP sin metadatos (`image_utils.py`)
 - 🧭 Menú lateral por áreas (Panel, Taller, Tienda, Herramientas, Administración) con contadores en vivo de tickets activos, stock crítico y citas pendientes
 - 💾 Respaldo descargable desde *Personal y Seguridad* generado con `pg_dump` de la base real
+- 🔒 PIN/contraseña de los equipos de clientes cifrados con `pgcrypto` (`pgp_sym_encrypt`, clave `DEVICE_DATA_KEY` solo en `.env`); la migración desde SQLite los cifra al cargarlos
+- 🛡️ Defensa CSRF por verificación de origen en todas las peticiones que modifican datos, y fotos de recepción/pagos validadas y recodificadas (nunca se usa la extensión enviada por el usuario)
 - 👥 CRM de clientes y dispositivos
 - 🔐 RBAC multi-sucursal con cuotas de espacio por rol a nivel de PostgreSQL
 - 🔔 Notificaciones SMS vía Twilio (opcional, simuladas en consola si no se configura)
@@ -68,10 +70,10 @@ Versiones **tal como están fijadas en `requirements.txt`** y verificadas en est
 | SGBD de origen (migración) | SQLite | 3.45.1 |
 | Orquestación de contenedores | Podman / podman-compose | 4.9.3 / 1.0.6 |
 | Lenguaje | Python | 3.12.3 |
-| Backend | FastAPI | 0.110.0 |
-| Servidor ASGI | Uvicorn | 0.29.0 |
+| Backend | FastAPI | 0.115.0 |
+| Servidor ASGI | Uvicorn | 0.31.0 |
 | Conector PostgreSQL | psycopg | 3.2.2 (`psycopg[binary,pool]`) |
-| Plantillas | Jinja2 | 3.1.3 |
+| Plantillas | Jinja2 | 3.1.4 |
 | Autenticación | PyJWT / bcrypt | 2.8.0 / 4.1.2 |
 | Carga sintética de pruebas | Faker | 30.1.0 |
 | Evidencia visual | Playwright / mermaid-cli (`mmdc`) | 1.48.0 / 11.x |
@@ -276,13 +278,21 @@ podman-compose -f infra/compose.yaml down         # detener y eliminar los conte
 pytest -v tests/test_dba_scb1001.py
 ```
 
-Ejecuta los 10 casos `CP-01` a `CP-10` **contra el clúster real** (sin mocks): tablespaces, cuotas, RBAC, modos de operación, índices, replicación, respaldo/PITR, migración, auditoría/monitoreo y la verificación de que toda la evidencia visual exista. Requiere que `fixit_pg_master` esté corriendo; `fixit_pg_replica` se reclona automáticamente dentro del propio caso `CP-06` si no está activa. Tiempo típico: **25 s a 5.5 min**, según si la réplica ya está sincronizada (los casos `CP-04`, `CP-07` y `CP-08` reinician contenedores y toman la mayor parte del tiempo).
+Ejecuta los casos `CP-01` a `CP-11` **contra el clúster real** (sin mocks): tablespaces, cuotas, RBAC, modos de operación, índices, replicación, respaldo/PITR, migración, auditoría/monitoreo, la verificación de que toda la evidencia visual exista y, en `CP-11`, la aplicación web completa (levanta `uvicorn` y recorre enlaces, formularios, subidas maliciosas, CSRF, aislamiento de stock por sucursal y cifrado). Requiere que `fixit_pg_master` esté corriendo; `fixit_pg_replica` se reclona automáticamente dentro del propio caso `CP-06` si no está activa. Tiempo típico: **25 s a 5.5 min**, según si la réplica ya está sincronizada (los casos `CP-04`, `CP-07` y `CP-08` reinician contenedores y toman la mayor parte del tiempo).
 
 Para un solo caso:
 
 ```bash
 pytest -v tests/test_dba_scb1001.py -k test_cp05
 ```
+
+## Mantenimiento del código
+
+| Tarea | Comando |
+| :--- | :--- |
+| Regenerar el CSS (tras cambiar clases de Tailwind en plantillas) | `bash infra/scripts/build_css.sh` |
+| Regenerar D02/D03 desde el catálogo real de PostgreSQL | `python3 infra/scripts/generate_schema_diagrams.py && python3 infra/scripts/capture_evidence.py --diagrams` |
+| Actualizar una base creada con el esquema anterior (catálogo `products`, citas `DATE`/`TIME`, cifrado) | ver encabezado de `src/sql/upgrades/2026-11_v2_catalogo_y_cifrado.sql` |
 
 ## Solución de problemas frecuentes
 
@@ -304,7 +314,7 @@ FixIT_ArquiComp/
 ├── main.py, main_desktop.py, database.py, dependencies.py   # App FastAPI (database.py usa psycopg3)
 ├── routers/                 # Endpoints por módulo (tickets, pos, inventory, users, ...)
 ├── templates/                # Plantillas Jinja2 (+ static/tailwindcss.js, static/flowbite.min.js)
-├── tests/test_dba_scb1001.py # Suite CP-01 a CP-10
+├── tests/test_dba_scb1001.py # Suite CP-01 a CP-11
 ├── src/
 │   ├── sql/                  # 01_tablespaces, 02_schema, 03_roles_and_quotas.sh, 04_indexes, 05_audit_and_monitoring
 │   └── data_generator/       # seed_workload.py (carga sintética con Faker)
@@ -320,7 +330,7 @@ FixIT_ArquiComp/
 │   ├── diagramas/              # D01-D04 (.mmd + .png)
 │   └── capturas/{terminal,ui}/ # P01-P12 y UI_01-04 (.png)
 ├── docs/                        # E01-E09: especificación académica SCB-1001
-├── .github/workflows/tests.yml  # CI: suite CP-01 a CP-10 en cada push/PR
+├── .github/workflows/tests.yml  # CI: suite CP-01 a CP-11 en cada push/PR
 ├── LICENSE                      # MIT
 └── README.md, MANUAL_*.md, DICCIONARIO_DATOS.md, PLAN_CONTINGENCIA.md, REPORTE_AUDITORIA.md
 ```
@@ -365,10 +375,10 @@ FixIT_ArquiComp/
 - 4 archivos huérfanos en `static/uploads/` (un diagrama UML de otro proyecto, sin relación con FixIT, subido por error en mayo 2026) — eliminados del árbol de trabajo.
 - Sin `LICENSE` — agregada (MIT).
 - `requirements.txt` en UTF-16LE con BOM — convertido a UTF-8 (`pip install` verificado tras la conversión).
-- El README original tenía **versiones inconsistentes** con `requirements.txt` (FastAPI 0.115.0/Uvicorn 0.31.0 vs los 0.110.0/0.29.0 realmente instalados) — corregido.
+- Las versiones instaladas no coincidían con la especificación oficial (FastAPI 0.110.0 / Uvicorn 0.29.0 / Jinja2 3.1.3 frente a 0.115.0 / 0.31.0 / 3.1.4) — `requirements.txt` actualizado a las versiones oficiales y código migrado a `lifespan` y a la firma nueva de `TemplateResponse`.
 - `pg_hba.conf` permisivo (`0.0.0.0/0`) — mitigado por contraseñas+RBAC, documentado como advertencia para despliegues reales (no es algo que un PR/merge por sí solo resuelva).
 
-**¿Por qué no se reescribió el historial de Git con `git filter-repo`?** Porque la fuga ya ocurrió y el repositorio es público: cualquiera que haya clonado, bifurcado o visto los commits antes de este cambio ya tiene las contraseñas viejas, y reescribir el historial no las "desexpone" — solo las oculta de futuros clones. La reescritura además requiere `push --force` sobre una rama que GitHub ya indexó (afecta forks, PRs abiertos, notificaciones y referencias por hash de commit de cualquiera que la haya consultado). La mitigación real y suficiente es la que ya se hizo: tratar esas 5 contraseñas como quemadas para siempre y no volver a usarlas. Si de todas formas se quiere limpiar el historial por higiene (no por seguridad, ese objetivo ya está cumplido), es una operación aparte, explícita, que debe pedirse y confirmarse por separado.
+**¿Por qué no se reescribió el historial de Git con `git filter-repo`?** Porque la fuga ya ocurrió y el repositorio es público: cualquiera que haya clonado, bifurcado o visto los commits antes de este cambio ya tiene las contraseñas viejas, y reescribir el historial no las "desexpone" — solo las oculta de futuros clones. La reescritura además requiere `push --force` sobre una rama que GitHub ya indexó (afecta forks, PRs abiertos, notificaciones y referencias por hash de commit de cualquiera que la haya consultado). La mitigación real y suficiente es la que ya se hizo: tratar esas 5 contraseñas como quemadas para siempre y no volver a usarlas. Posteriormente sí se reescribió el historial por higiene del repositorio (retirar archivos de configuración local que nunca debieron versionarse); las contraseñas antiguas siguen considerándose comprometidas.
 
 **¿Qué pruebas se ejecutaron antes de este reporte?**
 1. `pytest -v tests/test_dba_scb1001.py` — **dos ejecuciones consecutivas, 10/10 ambas**, sobre una instalación recién reaprovisionada.

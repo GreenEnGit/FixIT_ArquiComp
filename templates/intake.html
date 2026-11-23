@@ -130,6 +130,11 @@
                     <label class="block text-sm font-semibold text-slate-700 mb-1">Número de Serie (S/N) <span class="text-rose-500">*</span></label>
                     <input type="text" name="serial_number" required placeholder="Ej: 5CD1234567" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors">
                 </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">PIN o contraseña de desbloqueo <span class="font-normal text-slate-400">(opcional)</span></label>
+                    <input type="password" name="device_password" maxlength="100" autocomplete="off" placeholder="Ej: PIN 1234 o patrón" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors">
+                    <span class="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5"><i data-lucide="lock" class="w-3 h-3"></i> Se guarda cifrado en la base de datos (pgcrypto).</span>
+                </div>
                 <div class="flex-grow">
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">Estado Físico de Ingreso <span class="text-rose-500">*</span></label>
                     <textarea name="estado_fisico" required minlength="10" class="w-full rounded-lg border-amber-300 border bg-amber-50/30 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 min-h-[100px] resize-y transition-colors" placeholder="DETALLAR: Golpes, faltantes..."></textarea>

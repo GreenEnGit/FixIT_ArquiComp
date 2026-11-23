@@ -20,9 +20,9 @@ class CheckoutRequest(BaseModel):
 async def pos_terminal(request: Request, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
     c = db.cursor()
     # Fetch top 50 items for quick access
-    c.execute("SELECT * FROM inventory WHERE branch_id = ? AND stock > 0 ORDER BY name ASC LIMIT 50", (user["branch_id"],))
+    c.execute("SELECT * FROM v_inventory WHERE branch_id = ? AND stock > 0 ORDER BY name ASC", (user["branch_id"],))
     items = c.fetchall()
-    return templates.TemplateResponse("pos.html", {"request": request, "user": user, "items": items})
+    return templates.TemplateResponse(request, "pos.html", {"request": request, "user": user, "items": items})
 
 @router.post("/checkout")
 async def checkout_cart(payload: CheckoutRequest, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -35,7 +35,7 @@ async def checkout_cart(payload: CheckoutRequest, user: dict = Depends(get_curre
         if item.qty <= 0:
             raise HTTPException(status_code=400, detail="La cantidad de un artículo debe ser mayor a 0.")
             
-        c.execute("SELECT * FROM inventory WHERE id = ? AND branch_id = ?", (item.id, user["branch_id"]))
+        c.execute("SELECT * FROM v_inventory WHERE id = ? AND branch_id = ?", (item.id, user["branch_id"]))
         db_item = c.fetchone()
         if not db_item:
             raise HTTPException(status_code=400, detail=f"Artículo {item.id} no encontrado en sucursal.")
@@ -62,7 +62,7 @@ async def checkout_cart(payload: CheckoutRequest, user: dict = Depends(get_curre
         c.execute("INSERT INTO sale_items (sale_id, item_id, qty, price, subtotal) VALUES (?, ?, ?, ?, ?)",
                   (sale_id, item["item_id"], item["qty"], item["price"], item["subtotal"]))
         
-        c.execute("UPDATE inventory SET stock = stock - ? WHERE id = ?", (item["qty"], item["item_id"]))
+        c.execute("UPDATE inventory SET stock = stock - ? WHERE id = ? AND branch_id = ?", (item["qty"], item["item_id"], user["branch_id"]))
         
         # Opcional: También registrar en auditoría como "VENTA_DIRECTA" para el historial individual
         c.execute("INSERT INTO audit_logs (username, action, item_id, details, monetary_impact, date, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -87,12 +87,12 @@ async def pos_receipt(request: Request, sale_id: int, user: dict = Depends(get_c
     c.execute("""
         SELECT si.*, i.name, i.brand 
         FROM sale_items si
-        JOIN inventory i ON si.item_id = i.id
+        JOIN products i ON si.item_id = i.id
         WHERE si.sale_id = ?
     """, (sale_id,))
     items = c.fetchall()
     
-    return templates.TemplateResponse("pos_receipt.html", {"request": request, "user": user, "sale": sale, "items": items})
+    return templates.TemplateResponse(request, "pos_receipt.html", {"request": request, "user": user, "sale": sale, "items": items})
 
 
 @router.post("/receipt/{sale_id}/revert", response_class=RedirectResponse)

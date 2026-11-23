@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ticket de Caja #{{ sale.id }}</title>
-    <script src="/static/tailwindcss.js"></script>
+    <link rel="stylesheet" href="/static/tailwind.css">
     <style>
         @media print {
             @page {
@@ -40,6 +40,7 @@
             margin: 10px 0;
         }
     </style>
+    <script src="/static/js/ui-dialogs.js" defer></script>
 </head>
 <body>
 
@@ -114,13 +115,14 @@
         };
         {% endif %}
 
-        function revertPosSale(saleId) {
-            const reason = prompt("Por favor, ingrese el motivo de la cancelación/reversión de esta venta (obligatorio):");
+        async function revertPosSale(saleId) {
+            const reason = await askReason({
+                title: 'Revertir venta',
+                message: 'El stock se devolverá al inventario y la venta quedará marcada como revertida.',
+                placeholder: 'Ej. El cliente devolvió el producto sin abrir',
+                confirmText: 'Revertir venta'
+            });
             if (reason === null) return;
-            if (reason.trim() === "") {
-                alert("El motivo de la reversión es obligatorio.");
-                return;
-            }
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = '/pos/receipt/' + saleId + '/revert';

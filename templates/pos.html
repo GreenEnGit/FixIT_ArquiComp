@@ -131,22 +131,13 @@ function addToCart(id, name, price, maxStock) {
     if (isNaN(price)) price = 0.0;
     if (isNaN(maxStock)) maxStock = 0;
 
-    let qtyStr = prompt("¿Cuántas unidades de '" + name + "' deseas añadir al carrito?", "1");
-    if (qtyStr === null) return;
-    let qty = parseInt(qtyStr);
-    if (isNaN(qty) || qty <= 0) {
-        alert("Cantidad no válida.");
-        return;
-    }
-    if (qty > maxStock) {
-        alert("No puedes añadir más de la existencia disponible (" + maxStock + " unidades).");
-        return;
-    }
+    // Cada clic agrega 1 unidad; la cantidad se ajusta con - / + en el carrito.
+    const qty = 1;
     if (cart[id]) {
         if (cart[id].qty + qty <= maxStock) {
             cart[id].qty += qty;
         } else {
-            alert("No puedes exceder el stock disponible (" + maxStock + " unidades en total).");
+            notify("No hay más existencias de '" + name + "' (" + maxStock + " en total).", 'error');
             return;
         }
     } else {
@@ -162,7 +153,7 @@ function updateQty(id, delta) {
             delete cart[id];
         } else if (cart[id].qty > cart[id].maxStock) {
             cart[id].qty = cart[id].maxStock;
-            alert('No hay más stock disponible.');
+            notify('No hay más stock disponible.', 'error');
         }
         renderCart();
     }
@@ -174,7 +165,7 @@ function setQty(id, value) {
         if (isNaN(val) || val <= 0) {
             delete cart[id];
         } else if (val > cart[id].maxStock) {
-            alert('Stock máximo alcanzado (' + cart[id].maxStock + ')');
+            notify('Stock máximo alcanzado (' + cart[id].maxStock + ')', 'error');
             cart[id].qty = cart[id].maxStock;
         } else {
             cart[id].qty = val;
@@ -266,12 +257,12 @@ async function processCheckout() {
         if (response.ok && data.success) {
             window.location.href = `/pos/receipt/${data.sale_id}`;
         } else {
-            alert(data.detail || 'Error al procesar la venta');
+            notify(data.detail || 'Error al procesar la venta', 'error');
             btn.disabled = false;
             btn.innerHTML = 'Cobrar Ticket';
         }
     } catch (e) {
-        alert('Error de conexión');
+        notify('Error de conexión con el servidor', 'error');
         btn.disabled = false;
         btn.innerHTML = 'Cobrar Ticket';
     }

@@ -20,7 +20,7 @@ async def list_users(request: Request, user: dict = Depends(get_current_user), d
     users_list = c.fetchall()
     c.execute("SELECT id, name FROM branches")
     branches = c.fetchall()
-    return templates.TemplateResponse("users.html", {"request": request, "user": user, "users_list": users_list, "branches": branches})
+    return templates.TemplateResponse(request, "users.html", {"request": request, "user": user, "users_list": users_list, "branches": branches})
 
 @router.post("/users/new", response_class=RedirectResponse)
 async def create_user(request: Request, username: str = Form(...), password: str = Form(...), role: str = Form(...), branch_id: str = Form(...), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -53,7 +53,7 @@ async def create_user(request: Request, username: str = Form(...), password: str
 @router.get("/profile", response_class=HTMLResponse)
 async def view_profile(request: Request, user: dict = Depends(get_current_user)):
     # Render profile editing page for the logged‑in user
-    return templates.TemplateResponse("profile.html", {"request": request, "user": user})
+    return templates.TemplateResponse(request, "profile.html", {"request": request, "user": user})
 
 @router.post("/profile", response_class=RedirectResponse)
 async def update_profile(request: Request, username: str = Form(...), current_password: str = Form(...), new_password: str = Form(None), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -137,12 +137,12 @@ async def view_audit_logs(request: Request, user: dict = Depends(get_current_use
     c.execute("""
         SELECT a.*, i.name as item_name 
         FROM audit_logs a
-        LEFT JOIN inventory i ON a.item_id = i.id
+        LEFT JOIN v_inventory i ON a.item_id = i.id AND i.branch_id = a.branch_id
         ORDER BY a.id DESC 
         LIMIT 200
     """)
     logs = c.fetchall()
-    return templates.TemplateResponse("audit.html", {"request": request, "user": user, "logs": logs})
+    return templates.TemplateResponse(request, "audit.html", {"request": request, "user": user, "logs": logs})
 
 @router.post("/set_branch/{branch_id}", response_class=RedirectResponse)
 async def set_branch(request: Request, branch_id: str, response: Response, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -164,7 +164,7 @@ async def set_branch(request: Request, branch_id: str, response: Response, user:
         redirect_url = "/"
         
     res = RedirectResponse(url=redirect_url, status_code=303)
-    res.set_cookie(key="active_branch_id", value=branch_id, httponly=True)
+    res.set_cookie(key="active_branch_id", value=branch_id, httponly=True, samesite="lax")
     return res
 
 
@@ -249,7 +249,7 @@ async def revert_restock_log(
     branch_id = log["branch_id"]
     
     # Check if item exists
-    c.execute("SELECT * FROM inventory WHERE id = ? AND branch_id = ?", (item_id, branch_id))
+    c.execute("SELECT * FROM v_inventory WHERE id = ? AND branch_id = ?", (item_id, branch_id))
     item = c.fetchone()
     if not item:
         raise HTTPException(status_code=404, detail="El componente asociado a este surtido ya no existe en el inventario")

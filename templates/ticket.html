@@ -91,6 +91,14 @@
             </h2>
             <p class="font-semibold text-slate-900">{{ ticket.device_str }}</p>
             <p class="text-xs text-slate-600 mt-1 font-mono">S/N: <span class="bg-slate-100 px-1 rounded">{{ ticket.serial_number }}</span> &middot; Físico: {{ ticket.condition }}</p>
+            {% if ticket.device_password %}
+            <div x-data="{ show: false }" class="mt-2 inline-flex items-center gap-2 text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded-md px-2 py-1">
+                <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                <span>Desbloqueo:</span>
+                <span class="font-mono font-bold" x-text="show ? {{ ticket.device_password|tojson|forceescape }} : '••••••••'">••••••••</span>
+                <button type="button" @click="show = !show" class="font-semibold underline hover:text-amber-700" x-text="show ? 'Ocultar' : 'Mostrar'">Mostrar</button>
+            </div>
+            {% endif %}
             <div class="mt-3 p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm text-slate-700 italic border-l-4 border-l-brand-400">
                 "{{ ticket.symptom }}"
             </div>

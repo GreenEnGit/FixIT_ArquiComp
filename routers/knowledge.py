@@ -21,7 +21,7 @@ async def knowledge_base(request: Request, user: dict = Depends(get_current_user
         categories.add(cat)
         sops_list.append(s_dict)
         
-    return templates.TemplateResponse("knowledge.html", {"request": request, "user": user, "sops": sops_list, "categories": sorted(list(categories))})
+    return templates.TemplateResponse(request, "knowledge.html", {"request": request, "user": user, "sops": sops_list, "categories": sorted(list(categories))})
 
 
 @router.post("/knowledge/new", response_class=RedirectResponse)

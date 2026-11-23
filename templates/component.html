@@ -47,6 +47,20 @@
                 <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded">¡Bajo Stock!</span>
                 {% endif %}
             </div>
+
+            {% if branch_stock|length > 0 %}
+            <div class="mt-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><i data-lucide="store" class="w-3.5 h-3.5"></i> Existencias por sucursal</p>
+                <ul class="divide-y divide-slate-100">
+                    {% for b in branch_stock %}
+                    <li class="py-2 flex items-center justify-between text-sm {% if b.branch_id == item.branch_id %}font-semibold text-slate-900{% else %}text-slate-600{% endif %}">
+                        <span>{{ b.branch_name }}{% if b.branch_id == user.branch_id %} <span class="text-[10px] font-bold text-brand-600">(tu sucursal)</span>{% endif %}</span>
+                        <span class="font-mono tabular-nums">{{ b.stock }} uds · ${{ "{:,.2f}".format(b.price) }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Derecha: Especificaciones Técnicas -->

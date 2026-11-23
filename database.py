@@ -16,6 +16,9 @@ PG_PORT = os.getenv("PGPORT", "5432")
 PG_DATABASE = os.getenv("PGDATABASE", "fixit_db")
 PG_USER = os.getenv("PGUSER", "admin_sys")
 PG_PASSWORD = os.getenv("PGPASSWORD", "")
+# Clave simétrica para cifrar con pgcrypto las contraseñas/PIN de equipos.
+# Sin clave, la app no guarda esos datos (nunca en texto plano).
+DEVICE_DATA_KEY = os.getenv("DEVICE_DATA_KEY", "")
 
 
 # El codigo de la app (heredado de SQLite, donde las columnas REAL siempre

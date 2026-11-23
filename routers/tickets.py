@@ -1,13 +1,13 @@
+import database
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 import sqlite3
 import os
-import uuid
-import shutil
 import asyncio
 import logging
 from decimal import Decimal
 from datetime import datetime
+from image_utils import sanitize_image, write_upload
 from dependencies import templates, get_db_conn, get_current_user
 
 logger = logging.getLogger("fixit")
@@ -72,19 +72,23 @@ async def list_tickets(request: Request, user: dict = Depends(get_current_user),
         ORDER BY t.date DESC
     """, (user["branch_id"],))
     tickets_list = c.fetchall()
-    return templates.TemplateResponse("tickets_list.html", {"request": request, "user": user, "tickets": tickets_list})
+    return templates.TemplateResponse(request, "tickets_list.html", {"request": request, "user": user, "tickets": tickets_list})
 
 @router.get("/{ticket_id}", response_class=HTMLResponse)
 async def view_ticket(request: Request, ticket_id: str, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
     c = db.cursor()
-    c.execute("""
-        SELECT t.*, c.name as customer_name, c.phone as customer_phone, 
-               d.type || ' ' || d.model as device_str, d.serial_number, d.condition
+    # La contraseña del equipo solo se descifra si el servidor tiene la clave.
+    pwd_sql = "pgp_sym_decrypt(d.password, ?)" if database.DEVICE_DATA_KEY else "NULL"
+    pwd_params = (database.DEVICE_DATA_KEY,) if database.DEVICE_DATA_KEY else ()
+    c.execute(f"""
+        SELECT t.*, c.name as customer_name, c.phone as customer_phone,
+               d.type || ' ' || d.model as device_str, d.serial_number, d.condition,
+               {pwd_sql} AS device_password
         FROM tickets t
         JOIN customers c ON t.customer_id = c.id
         JOIN customer_devices d ON t.device_id = d.id
         WHERE t.id = ?
-    """, (ticket_id,))
+    """, pwd_params + (ticket_id,))
     ticket = c.fetchone()
     if not ticket: raise HTTPException(status_code=404, detail="Ticket no encontrado")
     
@@ -108,7 +112,7 @@ async def view_ticket(request: Request, ticket_id: str, user: dict = Depends(get
     t_dict = dict(ticket)
     t_dict["parts_used"] = [dict(p) for p in parts_used]
     
-    c.execute("SELECT * FROM inventory WHERE branch_id = ? AND stock > 0", (ticket["branch_id"],))
+    c.execute("SELECT * FROM v_inventory WHERE branch_id = ? AND stock > 0 ORDER BY name", (ticket["branch_id"],))
     available_parts = c.fetchall()
     
     c.execute("SELECT * FROM activities WHERE ticket_id = ? ORDER BY id DESC", (ticket_id,))
@@ -117,7 +121,7 @@ async def view_ticket(request: Request, ticket_id: str, user: dict = Depends(get
     c.execute("SELECT * FROM ticket_images WHERE ticket_id = ?", (ticket_id,))
     ticket_images = c.fetchall()
     
-    return templates.TemplateResponse("ticket.html", {
+    return templates.TemplateResponse(request, "ticket.html", {
         "request": request, "user": user, "ticket": t_dict, "statuses": TICKET_STATUSES,
         "subtotal_parts": float(subtotal_parts), "tax": float(tax), "total": float(total),
         "available_parts": available_parts, "payments": payments, "total_paid": float(total_paid),
@@ -179,20 +183,22 @@ async def register_payment(ticket_id: str, amount: float = Form(...), method: st
     if total_paid + Decimal(str(amount)) >= total:
         if not payment_image or not payment_image.filename:
             raise HTTPException(status_code=400, detail="Es obligatorio subir una foto o recibo de pago para liquidar el ticket.")
+
+    # Validar y sanear el comprobante ANTES de registrar el pago.
+    clean_receipt = None
+    if payment_image and payment_image.filename:
+        try:
+            clean_receipt = sanitize_image(await payment_image.read())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Comprobante de pago: {exc}")
             
     c.execute("INSERT INTO payments (ticket_id, amount, method, date) VALUES (?, ?, ?, ?)",
               (ticket_id, amount, method, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
               
     # Guardar imagen si se subió
-    if payment_image and payment_image.filename:
-        ext = os.path.splitext(payment_image.filename)[1]
-        file_name = f"pay_{ticket_id}_{uuid.uuid4().hex[:8]}{ext}"
-        os.makedirs("static/uploads", exist_ok=True)
-        file_path = f"static/uploads/{file_name}"
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(payment_image.file, buffer)
-        c.execute("INSERT INTO ticket_images (ticket_id, file_path) VALUES (?, ?)",
-                  (ticket_id, f"/{file_path}"))
+    if clean_receipt:
+        web_path = write_upload("static/uploads/payments", f"pay-{ticket_id}", clean_receipt)
+        c.execute("INSERT INTO ticket_images (ticket_id, file_path) VALUES (?, ?)", (ticket_id, web_path))
     
     total_paid = total_paid + Decimal(str(amount))
     
@@ -229,8 +235,12 @@ async def add_part_to_ticket(ticket_id: str, part_id: str = Form(...), user: dic
     c.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,))
     ticket = c.fetchone()
     
+    if ticket and ticket["branch_id"] != user["branch_id"]:
+        raise HTTPException(status_code=403, detail="El ticket pertenece a otra sucursal.")
     if ticket and ticket["status"] != "ENTREGADO Y PAGADO":
-        c.execute("SELECT * FROM inventory WHERE id = ? AND stock > 0", (part_id,))
+        # FOR UPDATE: dos técnicos no pueden tomar la misma última pieza (RF-02).
+        c.execute("SELECT i.stock, i.cost, i.price, p.name FROM inventory i JOIN products p ON p.id = i.id "
+                  "WHERE i.id = ? AND i.branch_id = ? AND i.stock > 0 FOR UPDATE OF i", (part_id, ticket["branch_id"]))
         part = c.fetchone()
         if part:
             c.execute("SELECT * FROM ticket_parts WHERE ticket_id = ? AND part_id = ?", (ticket_id, part_id))
@@ -241,7 +251,7 @@ async def add_part_to_ticket(ticket_id: str, part_id: str = Form(...), user: dic
                 c.execute("INSERT INTO ticket_parts (ticket_id, part_id, name, qty, cost, price) VALUES (?, ?, ?, ?, ?, ?)",
                           (ticket_id, part_id, part["name"], 1, part["cost"], part["price"]))
             
-            c.execute("UPDATE inventory SET stock = stock - 1 WHERE id = ?", (part_id,))
+            c.execute("UPDATE inventory SET stock = stock - 1 WHERE id = ? AND branch_id = ?", (part_id, ticket["branch_id"]))
             c.execute("INSERT INTO activities (ticket_id, action, time, branch_id) VALUES (?, ?, ?, ?)",
                       (ticket_id, f"Agregó refacción: {part['name']}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ticket["branch_id"]))
             db.commit()
@@ -254,6 +264,8 @@ async def remove_part_from_ticket(ticket_id: str, part_id: str, user: dict=Depen
     c.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,))
     ticket = c.fetchone()
     
+    if ticket and ticket["branch_id"] != user["branch_id"]:
+        raise HTTPException(status_code=403, detail="El ticket pertenece a otra sucursal.")
     if ticket and ticket["status"] != "ENTREGADO Y PAGADO":
         c.execute("SELECT * FROM ticket_parts WHERE ticket_id = ? AND part_id = ?", (ticket_id, part_id))
         existing = c.fetchone()
@@ -263,7 +275,7 @@ async def remove_part_from_ticket(ticket_id: str, part_id: str, user: dict=Depen
             else:
                 c.execute("DELETE FROM ticket_parts WHERE id = ?", (existing["id"],))
             
-            c.execute("UPDATE inventory SET stock = stock + 1 WHERE id = ?", (part_id,))
+            c.execute("UPDATE inventory SET stock = stock + 1 WHERE id = ? AND branch_id = ?", (part_id, ticket["branch_id"]))
             c.execute("INSERT INTO activities (ticket_id, action, time, branch_id) VALUES (?, ?, ?, ?)",
                       (ticket_id, f"Removió refacción: {existing['name']}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ticket["branch_id"]))
             db.commit()
@@ -273,14 +285,18 @@ async def remove_part_from_ticket(ticket_id: str, part_id: str, user: dict=Depen
 @router.get("/{ticket_id}/invoice", response_class=HTMLResponse)
 async def generate_invoice(request: Request, ticket_id: str, db: sqlite3.Connection = Depends(get_db_conn)):
     c = db.cursor()
-    c.execute("""
-        SELECT t.*, c.name as customer_name, c.phone as customer_phone, 
-               d.type || ' ' || d.model as device_str, d.serial_number, d.condition
+    # La contraseña del equipo solo se descifra si el servidor tiene la clave.
+    pwd_sql = "pgp_sym_decrypt(d.password, ?)" if database.DEVICE_DATA_KEY else "NULL"
+    pwd_params = (database.DEVICE_DATA_KEY,) if database.DEVICE_DATA_KEY else ()
+    c.execute(f"""
+        SELECT t.*, c.name as customer_name, c.phone as customer_phone,
+               d.type || ' ' || d.model as device_str, d.serial_number, d.condition,
+               {pwd_sql} AS device_password
         FROM tickets t
         JOIN customers c ON t.customer_id = c.id
         JOIN customer_devices d ON t.device_id = d.id
         WHERE t.id = ?
-    """, (ticket_id,))
+    """, pwd_params + (ticket_id,))
     ticket = c.fetchone()
     if not ticket: raise HTTPException(status_code=404, detail="Ticket no encontrado")
     
@@ -298,7 +314,7 @@ async def generate_invoice(request: Request, ticket_id: str, db: sqlite3.Connect
     t_dict = dict(ticket)
     t_dict["parts_used"] = [dict(p) for p in parts_used]
     
-    return templates.TemplateResponse("invoice.html", {
+    return templates.TemplateResponse(request, "invoice.html", {
         "request": request, "ticket": t_dict, "subtotal_parts": float(subtotal_parts),
         "tax": float(tax), "total": float(total), "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     })

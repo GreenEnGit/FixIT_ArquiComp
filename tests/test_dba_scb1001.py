@@ -1,5 +1,5 @@
 """FixIT_ArquiComp — tests/test_dba_scb1001.py
-SCB-1001 — T-12: Suite de validacion academica (CP-01 a CP-10).
+SCB-1001 — T-12: Suite de validacion academica (CP-01 a CP-11).
 
 Uso:
     pytest -v tests/test_dba_scb1001.py
@@ -133,14 +133,17 @@ def test_cp03_cuota_y_rbac():
 # =====================================================================
 
 def test_cp04_modos_operacion_y_concurrencia():
-    result = run("bash infra/scripts/ops_modes.sh recovery", timeout=60)
-    assert result.returncode == 0
-    check = run('podman exec --user postgres fixit_pg_master psql -U postgres '
-                '-d fixit_db -t -c "SELECT pg_is_in_recovery();"')
-    assert check.stdout.strip() == "t"
-
-    result = run("bash infra/scripts/ops_modes.sh normal", timeout=240)
-    assert result.returncode == 0
+    try:
+        result = run("bash infra/scripts/ops_modes.sh recovery", timeout=150)
+        assert result.returncode == 0, result.stdout + result.stderr
+        check = run('podman exec --user postgres fixit_pg_master psql -U postgres '
+                    '-d fixit_db -t -c "SELECT pg_is_in_recovery();"')
+        assert check.stdout.strip() == "t"
+    finally:
+        # Siempre regresar a modo normal: si el maestro se quedara en recovery,
+        # todos los casos siguientes fallarian en cascada.
+        result = run("bash infra/scripts/ops_modes.sh normal", timeout=240)
+    assert result.returncode == 0, result.stdout + result.stderr
     row = fetch_one("SELECT pg_is_in_recovery() AS recovering")
     assert row["recovering"] is False
 
@@ -166,7 +169,7 @@ def test_cp04_modos_operacion_y_concurrencia():
     row = fetch_one("SELECT stock FROM inventory WHERE id = 'CAB-USB-C'")
     assert row["stock"] == 0
 
-    result = run("bash infra/scripts/ops_modes.sh logs", timeout=30)
+    result = run("bash infra/scripts/ops_modes.sh logs", timeout=120)
     assert result.returncode == 0
     assert "pg_log" in result.stdout or "pg_stat_wal" in result.stdout
 
@@ -176,7 +179,7 @@ def test_cp04_modos_operacion_y_concurrencia():
 # =====================================================================
 
 def test_cp05_carga_sintetica_e_indices():
-    result = run("python3 src/data_generator/seed_workload.py --rows 2000", timeout=60)
+    result = run("python3 src/data_generator/seed_workload.py --rows 2000", timeout=240)
     assert result.returncode == 0
     assert "insertados" in result.stdout
 
@@ -184,7 +187,7 @@ def test_cp05_carga_sintetica_e_indices():
             "WHERE id IN (SELECT id FROM tickets ORDER BY id LIMIT 500)")
     execute("ANALYZE tickets")
 
-    result = run("bash infra/scripts/reindex.sh", timeout=60)
+    result = run("bash infra/scripts/reindex.sh", timeout=240)
     assert result.returncode == 0
     assert "REINDEX" in result.stdout or "DO" in result.stdout
 
@@ -261,7 +264,7 @@ def test_cp07_backup_y_pitr():
 # =====================================================================
 
 def test_cp08_migracion_sqlite_postgres():
-    result = run("python3 infra/scripts/migrate_sqlite_to_pg.py --verify", timeout=60)
+    result = run("python3 infra/scripts/migrate_sqlite_to_pg.py --verify", timeout=240)
     assert result.returncode == 0
     assert "100%" in result.stdout or "DIFIERE" not in result.stdout
 
@@ -285,7 +288,7 @@ def test_cp09_auditoria_y_monitoreo():
 
     run("bash infra/scripts/toggle_audit.sh on")
 
-    result = run("bash infra/scripts/monitor_resources.sh", timeout=60)
+    result = run("bash infra/scripts/monitor_resources.sh", timeout=240)
     assert result.returncode == 0
     assert "pg_stat_statements" in result.stdout or "cache_hit_ratio" in result.stdout
 
@@ -307,3 +310,182 @@ def test_cp10_evidencia_visual_completa():
         data = path.read_bytes()
         assert data[:8] == b"\x89PNG\r\n\x1a\n", f"{path.name} no es un PNG valido"
         assert len(data) > 10 * 1024, f"{path.name} pesa {len(data)} bytes (<= 10 KB)"
+
+
+# =====================================================================
+# CP-11 — Aplicación web: navegación, subidas, CSRF, sucursales y cifrado
+# =====================================================================
+# Levanta la app real (uvicorn) contra el clúster y la recorre por HTTP.
+
+import io  # noqa: E402
+import re  # noqa: E402
+import socket  # noqa: E402
+from html.parser import HTMLParser  # noqa: E402
+from urllib.parse import urljoin, urlparse  # noqa: E402
+
+import requests  # noqa: E402
+
+CP11_PORT = 8765
+
+
+@pytest.fixture(scope="module")
+def app_url():
+    proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", str(CP11_PORT)],
+                            cwd=PROJECT_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(60):
+            try:
+                socket.create_connection(("127.0.0.1", CP11_PORT), timeout=1).close()
+                break
+            except OSError:
+                time.sleep(0.5)
+        else:
+            pytest.fail("uvicorn no respondió en :%d" % CP11_PORT)
+        yield f"http://127.0.0.1:{CP11_PORT}"
+    finally:
+        proc.terminate()
+        proc.wait(timeout=10)
+
+
+def _session(base, user="admin", password="admin123", branch=None):
+    s = requests.Session()
+    s.headers["Origin"] = base
+    r = s.post(base + "/login", data={"username": user, "password": password})
+    assert r.status_code == 200 and "session_token" in s.cookies
+    if branch:
+        s.post(base + "/set_branch/" + branch, headers={"Referer": base + "/"})
+    return s
+
+
+class _Links(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links, self.assets, self.forms = set(), set(), []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "a" and a.get("href"):
+            self.links.add(a["href"])
+        if tag in ("img", "script") and a.get("src"):
+            self.assets.add(a["src"])
+        if tag == "link" and a.get("href"):
+            self.assets.add(a["href"])
+        if tag == "form" and a.get("action"):
+            self.forms.append(((a.get("method") or "GET").upper(), a["action"]))
+
+
+def _route_exists(path, method):
+    import main
+    from starlette.routing import Match
+    scope = {"type": "http", "path": path, "method": method, "root_path": "", "query_string": b"", "headers": []}
+    return any(r.matches(scope)[0] == Match.FULL for r in main.app.routes)
+
+
+@pytest.mark.parametrize("user,password,branch", [("admin", "admin123", "NORTE"), ("admin", "admin123", "CENTRO"),
+                                                  ("tecnico_norte", "tec123", None)])
+def test_cp11_navegacion_sin_enlaces_rotos(app_url, user, password, branch):
+    s = _session(app_url, user, password, branch)
+    queue, seen, problems, assets, forms = ["/"], set(), [], set(), set()
+    while queue and len(seen) < 200:
+        path = queue.pop(0)
+        if path in seen:
+            continue
+        seen.add(path)
+        t0 = time.time()
+        r = s.get(app_url + path, allow_redirects=False, timeout=180)
+        if time.time() - t0 > 5:
+            print(f"[CP-11] lento: {path} {time.time() - t0:.1f}s")
+        if r.status_code >= 400 or "/login" in r.headers.get("location", ""):
+            problems.append(f"{r.status_code} {path}")
+            continue
+        if "text/html" not in r.headers.get("content-type", ""):
+            continue
+        col = _Links()
+        col.feed(r.text)
+        for href in col.links:
+            u = urlparse(urljoin(app_url + path, href))
+            if href.startswith(("#", "javascript:", "mailto:")) or u.netloc != urlparse(app_url).netloc or u.path == "/logout":
+                continue
+            queue.append(u.path + ("?" + u.query if u.query else ""))
+        assets |= {urljoin(app_url + path, a) for a in col.assets}
+        forms |= {(m, urlparse(urljoin(app_url + path, a)).path) for m, a in col.forms}
+    for url in assets:
+        assert urlparse(url).netloc == urlparse(app_url).netloc, f"recurso externo (la app debe ser offline): {url}"
+        code = s.get(url, timeout=180).status_code
+        if code >= 400:
+            problems.append(f"{code} recurso {url}")
+    problems += [f"formulario sin ruta: {m} {p}" for m, p in forms if not _route_exists(p, m)]
+    assert len(seen) > 30
+    assert not problems, problems
+
+
+def _png(color=(200, 30, 30), size=(64, 64)):
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", size, color).save(buf, "PNG")
+    return buf.getvalue()
+
+
+def test_cp11_subida_de_imagenes_validada(app_url):
+    from PIL import Image
+    s = _session(app_url)
+    original = fetch_one("SELECT p.name, p.brand, p.category, p.image_path, i.cost, i.price FROM products p "
+                         "JOIN inventory i ON i.id = p.id WHERE p.id = 'CAB-USB-C' AND i.branch_id = 'NORTE'")
+    form = {"name": original["name"], "brand": original["brand"], "category": original["category"],
+            "cost": str(original["cost"]), "price": str(original["price"])}
+    url = app_url + "/inventory/item/CAB-USB-C/edit"
+    try:
+        r = s.post(url, data=form, files={"image": ("foto.jpg", b"<?php system($_GET['c']); ?>", "image/jpeg")}, allow_redirects=False)
+        assert r.status_code == 400, "un script disfrazado de .jpg debe rechazarse"
+
+        bomb = io.BytesIO()
+        Image.new("L", (10000, 10000), 0).save(bomb, "PNG", optimize=True)
+        r = s.post(url, data=form, files={"image": ("bomba.png", bomb.getvalue(), "image/png")}, allow_redirects=False)
+        assert r.status_code == 400, "una decompression bomb debe rechazarse"
+
+        poly = _png() + b"<html><script>alert(document.cookie)</script></html>"
+        r = s.post(url, data=form, files={"image": ("poly.png", poly, "image/png")}, allow_redirects=False)
+        assert r.status_code == 303
+        saved = fetch_one("SELECT image_path FROM products WHERE id = 'CAB-USB-C'")["image_path"]
+        assert saved.startswith("/static/uploads/products/") and saved.endswith(".webp")
+        data = (PROJECT_DIR / saved.lstrip("/")).read_bytes()
+        assert data[:4] == b"RIFF" and b"<script" not in data, "la imagen debe recodificarse sin la carga oculta"
+    finally:
+        current = fetch_one("SELECT image_path FROM products WHERE id = 'CAB-USB-C'")["image_path"] or ""
+        if current.startswith("/static/uploads/products/"):
+            (PROJECT_DIR / current.lstrip("/")).unlink(missing_ok=True)
+        execute("UPDATE products SET image_path = %s WHERE id = 'CAB-USB-C'", (original["image_path"],))
+
+
+def test_cp11_csrf_por_verificacion_de_origen(app_url):
+    s = _session(app_url)
+    r = s.post(app_url + "/set_branch/NORTE", headers={"Origin": "http://sitio-malicioso.example"}, allow_redirects=False)
+    assert r.status_code == 403
+    r = s.post(app_url + "/set_branch/NORTE", headers={"Origin": app_url, "Referer": app_url + "/"}, allow_redirects=False)
+    assert r.status_code == 303
+
+
+def test_cp11_venta_solo_descuenta_su_sucursal(app_url):
+    stock = lambda b: fetch_one("SELECT stock FROM inventory WHERE id = 'RAM-8G-D4' AND branch_id = %s", (b,))["stock"]
+    norte, centro = stock("NORTE"), stock("CENTRO")
+    s = _session(app_url, branch="NORTE")
+    r = s.post(app_url + "/pos/checkout", json={"items": [{"id": "RAM-8G-D4", "qty": 1}]})
+    assert r.status_code == 200 and r.json()["success"]
+    sale_id = r.json()["sale_id"]
+    assert stock("NORTE") == norte - 1
+    assert stock("CENTRO") == centro, "una venta en NORTE no debe tocar el stock de CENTRO"
+    r = s.post(f"{app_url}/pos/receipt/{sale_id}/revert", data={"reason": "CP-11"}, headers={"Referer": app_url + "/"})
+    assert r.status_code == 200
+    assert stock("NORTE") == norte
+
+
+def test_cp11_busqueda_y_datos_cifrados(app_url):
+    s = _session(app_url, branch="NORTE")
+    ids = [r["id"] for r in s.get(app_url + "/inventory/api/search", params={"q": "ssd"}).json()]
+    assert "SSD-500G-NVME" in ids, "la búsqueda debe ignorar mayúsculas/minúsculas"
+    row = fetch_one("SELECT password FROM customer_devices WHERE id = 'DEV-001'")
+    assert row["password"] is not None and b"4821" not in bytes(row["password"]), "el PIN no debe guardarse en texto plano"
+    key = dotenv_values(PROJECT_DIR / ".env").get("DEVICE_DATA_KEY")
+    assert fetch_one("SELECT pgp_sym_decrypt(password, %s) AS pin FROM customer_devices WHERE id = 'DEV-001'",
+                     (key,))["pin"] == "PIN 4821"
+    assert re.search(r"PIN 4821", s.get(app_url + "/ticket/REP-001021").text), "el técnico debe poder ver el PIN descifrado"

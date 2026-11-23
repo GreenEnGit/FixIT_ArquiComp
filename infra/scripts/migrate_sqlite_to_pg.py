@@ -27,6 +27,7 @@ TABLES = [
     ("users", True),
     ("customers", False),
     ("vendors", False),
+    ("products", False),
     ("knowledge_base", True),
     ("inventory", False),
     ("purchase_orders", True),
@@ -49,12 +50,16 @@ TABLES = [
 
 
 def _clean(col, value):
-    # shortcut: solo inventory.specs necesita saneo (JSON vacio -> NULL para
-    # el cast implicito text->jsonb); si otra columna JSONB se agrega al
-    # esquema, sumarla aqui.
-    if col == "specs" and (value is None or value == ""):
+    # JSON vacio -> NULL para el cast implicito text->jsonb, y contrasena de
+    # equipo vacia -> NULL (pgp_sym_encrypt es STRICT: NULL entra, NULL sale).
+    if col in ("specs", "password") and (value is None or value == ""):
         return None
     return value
+
+
+# Columnas que viajan cifradas: el sistema legado (SQLite) las guardaba en
+# texto plano; en PostgreSQL solo se almacena el resultado de pgcrypto.
+ENCRYPTED_COLUMNS = {("customer_devices", "password")}
 
 
 def migrate():
@@ -80,11 +85,22 @@ def migrate():
 
         cols = rows[0].keys()
         col_list = ", ".join(cols)
-        placeholders = ", ".join(["%s"] * len(cols))
+        encrypted = [(table, col) in ENCRYPTED_COLUMNS for col in cols]
+        if any(encrypted) and not database.DEVICE_DATA_KEY:
+            sys.exit("[ERROR] DEVICE_DATA_KEY no esta definida en .env: no se migran datos sensibles sin cifrar.")
+        placeholders = ", ".join("pgp_sym_encrypt(%s::text, %s)" if enc else "%s" for enc in encrypted)
         overriding = " OVERRIDING SYSTEM VALUE" if has_identity else ""
         sql = f"INSERT INTO {table} ({col_list}){overriding} VALUES ({placeholders})"
 
-        values = [tuple(_clean(col, row[col]) for col in cols) for row in rows]
+        def _params(row):
+            out = []
+            for col, enc in zip(cols, encrypted):
+                out.append(_clean(col, row[col]))
+                if enc:
+                    out.append(database.DEVICE_DATA_KEY)
+            return tuple(out)
+
+        values = [_params(row) for row in rows]
         pcur.executemany(sql, values)
         print(f"[OK] {table}: {len(rows)} filas migradas")
 

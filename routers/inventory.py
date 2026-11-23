@@ -37,9 +37,9 @@ async def inventory_sales(request: Request, branch_id: str = None, user: dict = 
     c = db.cursor()
     # Admin can view any branch; regular users see only their own branch
     target_branch = user["branch_id"] if branch_id is None or user["role"] != "ADMIN" else branch_id
-    c.execute("SELECT i.*, b.name as branch_name FROM inventory i JOIN branches b ON i.branch_id = b.id WHERE i.branch_id = ?", (target_branch,))
+    c.execute("SELECT i.*, b.name as branch_name FROM v_inventory i JOIN branches b ON i.branch_id = b.id WHERE i.branch_id = ? ORDER BY i.name", (target_branch,))
     branch_inventory = c.fetchall()
-    return templates.TemplateResponse("inventory_sales.html", {"request": request, "user": user, "items": branch_inventory, "selected_branch": target_branch})
+    return templates.TemplateResponse(request, "inventory_sales.html", {"request": request, "user": user, "items": branch_inventory, "selected_branch": target_branch})
 
 @router.post("/new", response_class=RedirectResponse)
 async def create_inventory(request: Request, name: str = Form(...), brand: str = Form(...), category: str = Form(...), cost: float = Form(...), price: float = Form(...), stock: int = Form(...), image: UploadFile = File(None), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -50,18 +50,24 @@ async def create_inventory(request: Request, name: str = Form(...), brand: str =
 
     new_id = f"ITM-{uuid.uuid4().hex[:8].upper()}"
     image_path = await _store_image(new_id, image)
-    c.execute("INSERT INTO inventory (id, name, brand, category, specs, stock, cost, price, branch_id, image_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-              (new_id, name, brand, category, "{}", stock, cost, price, user["branch_id"], image_path))
+    c.execute("INSERT INTO products (id, name, brand, category, specs, image_path) VALUES (?, ?, ?, ?, ?, ?)",
+              (new_id, name, brand, category, "{}", image_path))
+    c.execute("INSERT INTO inventory (id, branch_id, stock, cost, price) VALUES (?, ?, ?, ?, ?)",
+              (new_id, user["branch_id"], stock, cost, price))
     db.commit()
     return RedirectResponse(url="/inventory/sales", status_code=303)
 
 @router.get("/component/{item_id}", response_class=HTMLResponse)
 async def view_component(request: Request, item_id: str, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
     c = db.cursor()
-    c.execute("SELECT * FROM inventory WHERE id = ?", (item_id,))
+    # Prefiere la fila de la sucursal activa; si no existe ahí, muestra la de otra sucursal.
+    c.execute("SELECT * FROM v_inventory WHERE id = ? ORDER BY (branch_id = ?) DESC LIMIT 1", (item_id, user["branch_id"]))
     item = c.fetchone()
     if not item:
         raise HTTPException(status_code=404, detail="El componente que buscas fue eliminado o no existe.")
+    c.execute("SELECT i.branch_id, b.name AS branch_name, i.stock, i.price FROM inventory i "
+              "JOIN branches b ON b.id = i.branch_id WHERE i.id = ? ORDER BY b.name", (item_id,))
+    branch_stock = c.fetchall()
     # specs es JSONB: psycopg ya lo entrega como dict; se acepta texto por compatibilidad.
     specs = item["specs"] or {}
     if isinstance(specs, str):
@@ -71,17 +77,17 @@ async def view_component(request: Request, item_id: str, user: dict = Depends(ge
             specs = {}
             
     credit = _photo_credits().get(item["id"]) if (item["image_path"] or "").startswith("/static/img/products/") else None
-    return templates.TemplateResponse("component.html", {"request": request, "user": user, "item": item, "specs": specs, "credit": credit})
+    return templates.TemplateResponse(request, "component.html", {"request": request, "user": user, "item": item, "specs": specs, "credit": credit, "branch_stock": branch_stock})
 
 @router.get("/barcode/{item_id}", response_class=HTMLResponse)
 async def view_barcode(request: Request, item_id: str, db: sqlite3.Connection = Depends(get_db_conn)):
     c = db.cursor()
-    c.execute("SELECT * FROM inventory WHERE id = ?", (item_id,))
+    c.execute("SELECT * FROM v_inventory WHERE id = ? LIMIT 1", (item_id,))
     item = c.fetchone()
     
     if not item:
         raise HTTPException(status_code=404, detail="El componente que buscas fue eliminado o no existe.")
-    return templates.TemplateResponse("barcode.html", {"request": request, "item": item})
+    return templates.TemplateResponse(request, "barcode.html", {"request": request, "item": item})
 
 @router.post("/deduct/{item_id}", response_class=RedirectResponse)
 async def deduct_stock(item_id: str, action: str = Form(...), details: str = Form(""), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -135,7 +141,7 @@ async def restock_item(
         raise HTTPException(status_code=400, detail="El costo y el precio no pueden ser negativos")
         
     c = db.cursor()
-    c.execute("SELECT * FROM inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
+    c.execute("SELECT * FROM v_inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
     item = c.fetchone()
     
     if not item:
@@ -171,7 +177,7 @@ async def view_sale_receipt(request: Request, log_id: int, user: dict = Depends(
     c.execute("""
         SELECT a.*, i.name as item_name, i.brand, b.name as branch_name, 'Sucursal FixIT' as branch_address
         FROM audit_logs a
-        JOIN inventory i ON a.item_id = i.id
+        JOIN v_inventory i ON a.item_id = i.id AND i.branch_id = a.branch_id
         JOIN branches b ON a.branch_id = b.id
         WHERE a.id = ? AND a.branch_id = ? AND a.action = 'VENTA_DIRECTA'
     """, (log_id, user["branch_id"]))
@@ -180,7 +186,7 @@ async def view_sale_receipt(request: Request, log_id: int, user: dict = Depends(
     if not log:
         raise HTTPException(status_code=404, detail="Recibo no encontrado o no pertenece a esta sucursal.")
         
-    return templates.TemplateResponse("sale_receipt.html", {"request": request, "user": user, "log": log})
+    return templates.TemplateResponse(request, "sale_receipt.html", {"request": request, "user": user, "log": log})
 
 
 @router.get("/api/search")
@@ -190,7 +196,7 @@ async def search_components(q: str, user: dict = Depends(get_current_user), db: 
     search_query = f"%{q}%"
     c.execute("""
         SELECT id, name, category, stock, image_path
-        FROM inventory 
+        FROM v_inventory
         WHERE branch_id = ? AND (name ILIKE ? OR brand ILIKE ? OR category ILIKE ? OR id ILIKE ?) 
         LIMIT 10
     """, (user["branch_id"],) + (search_query,) * 4)
@@ -204,7 +210,7 @@ async def order_stock(item_id: str, user: dict = Depends(get_current_user), db: 
     if not c.fetchone():
         raise HTTPException(status_code=403, detail="No tienes permiso para ordenar stock de otra sucursal.")
     
-    c.execute("UPDATE inventory SET stock = stock + 10 WHERE id = ?", (item_id,))
+    c.execute("UPDATE inventory SET stock = stock + 10 WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
     # Registrar la orden simulada
     c.execute("INSERT INTO purchase_orders (vendor_id, part_id, qty, status, date) VALUES (?, ?, ?, ?, ?)",
               ("VEND-01", item_id, 10, "COMPLETADA", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
@@ -243,7 +249,7 @@ async def edit_inventory_item(
         raise HTTPException(status_code=400, detail="El costo y el precio no pueden ser negativos")
         
     c = db.cursor()
-    c.execute("SELECT * FROM inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
+    c.execute("SELECT * FROM v_inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
     item = c.fetchone()
     
     if not item:
@@ -258,9 +264,12 @@ async def edit_inventory_item(
         if old_file.startswith(os.path.realpath("static/uploads/products") + os.sep) and os.path.isfile(old_file):
             os.remove(old_file)
     c.execute(
-        "UPDATE inventory SET name = ?, brand = ?, category = ?, cost = ?, price = ?, image_path = ? WHERE id = ? AND branch_id = ?",
-        (name, brand, category, cost, price, image_path, item_id, user["branch_id"])
+        "UPDATE products SET name = ?, brand = ?, category = ?, image_path = ? WHERE id = ?",
+        (name, brand, category, image_path, item_id)
     )
+    # Costo y precio son propios de cada sucursal.
+    c.execute("UPDATE inventory SET cost = ?, price = ? WHERE id = ? AND branch_id = ?",
+              (cost, price, item_id, user["branch_id"]))
     db.commit()
     return RedirectResponse(url="/inventory/sales", status_code=303)
 
@@ -272,7 +281,7 @@ async def clear_stock_to_merma(
     db: sqlite3.Connection = Depends(get_db_conn)
 ):
     c = db.cursor()
-    c.execute("SELECT name, stock, cost FROM inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
+    c.execute("SELECT name, stock, cost FROM v_inventory WHERE id = ? AND branch_id = ?", (item_id, user["branch_id"]))
     row = c.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Componente no encontrado")

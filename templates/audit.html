@@ -82,13 +82,13 @@
 </div>
 
 <script>
-function revertRestock(logId, itemName) {
-    const reason = prompt("Por favor, describa el error por el cual desea revertir este surtido de '" + itemName + "' (obligatorio):");
+async function revertRestock(logId, itemName) {
+    const reason = await askReason({
+        title: 'Revertir surtido',
+        message: "Describe el error por el cual se revierte el surtido de '" + itemName + "'.",
+        confirmText: 'Revertir surtido'
+    });
     if (reason === null) return;
-    if (reason.trim() === "") {
-        alert("El motivo de la reversión es obligatorio.");
-        return;
-    }
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '/audit/' + logId + '/revert-restock';

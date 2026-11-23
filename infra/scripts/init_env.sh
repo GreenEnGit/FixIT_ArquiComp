@@ -110,6 +110,17 @@ if ! grep -qE '^SECRET_KEY="?[^"[:space:]]{16,}' "$PROJECT_DIR/.env"; then
   echo "[OK] SECRET_KEY aleatoria generada en $PROJECT_DIR/.env"
 fi
 
+# DEVICE_DATA_KEY cifra (pgcrypto) las contrasenas/PIN de los equipos de clientes.
+if ! grep -qE '^DEVICE_DATA_KEY="?[^"[:space:]]{16,}' "$PROJECT_DIR/.env"; then
+  device_key=$(openssl rand -hex 32)
+  if grep -q '^DEVICE_DATA_KEY=' "$PROJECT_DIR/.env"; then
+    sed -i "s/^DEVICE_DATA_KEY=.*/DEVICE_DATA_KEY=${device_key}/" "$PROJECT_DIR/.env"
+  else
+    echo "DEVICE_DATA_KEY=${device_key}" >> "$PROJECT_DIR/.env"
+  fi
+  echo "[OK] DEVICE_DATA_KEY aleatoria generada en $PROJECT_DIR/.env"
+fi
+
 echo ""
 echo "--- Procedimiento general de instalacion (U2.T2.S6) ---"
 # Solo el maestro: fixit_pg_replica se levanta via setup_replication.sh,

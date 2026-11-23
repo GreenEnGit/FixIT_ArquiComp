@@ -1,5 +1,5 @@
 -- FixIT_ArquiComp — src/sql/02_schema.sql
--- SCB-1001 — T-03: U3.T3.S4 — Migracion de las ~19 tablas reales de
+-- SCB-1001 — T-03: U3.T3.S4 — Migracion de las ~20 tablas reales de
 --   database.py (SQLite) hacia PostgreSQL 16.4, distribuidas en los 4
 --   tablespaces (ts_catalogos, ts_transaccional, ts_auditoria, ts_indices).
 --
@@ -9,12 +9,19 @@
 --   ts_auditoria     -> bitacora de auditoria
 --   ts_indices       -> todos los indices PK/UNIQUE (USING INDEX TABLESPACE)
 --
--- Nota de tipos: las columnas de fecha/hora con datos ISO consistentes en el
--- seed original (tickets.date, payments.date, warranties.*_date,
--- purchase_orders.date) se tipan como DATE/TIMESTAMP nativos. La columna
--- appointments.date/time conserva VARCHAR porque el seed legacy almacena
--- valores no normalizados ("Hoy", "Mañana", "10:00 AM"); su normalizacion a
--- tipos de fecha reales queda a cargo del ETL de migracion (T-05).
+-- Nota de tipos: todas las fechas/horas usan tipos nativos (DATE, TIME,
+-- TIMESTAMP), incluidas appointments.date/time, para validar, ordenar y
+-- filtrar por rango en el propio SGBD.
+--
+-- Modelo de inventario (3FN): `products` es el catalogo maestro (un SKU =
+-- un producto, en ts_catalogos) e `inventory` guarda las existencias, costo
+-- y precio de ese producto en cada sucursal (PK compuesta id + branch_id).
+-- La vista v_inventory reune ambos para las consultas de la aplicacion.
+--
+-- Datos sensibles: customer_devices.password se guarda cifrada con pgcrypto
+-- (pgp_sym_encrypt); la clave vive solo en el .env de la aplicacion.
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- =====================================================================
 -- TABLESPACE: ts_catalogos
@@ -58,28 +65,34 @@ CREATE TABLE knowledge_base (
     category    VARCHAR(50)  NOT NULL DEFAULT 'General'
 ) TABLESPACE ts_catalogos;
 
--- =====================================================================
--- TABLESPACE: ts_transaccional
--- =====================================================================
-
-CREATE TABLE inventory (
+CREATE TABLE products (
     id          VARCHAR(30)   PRIMARY KEY USING INDEX TABLESPACE ts_indices,
     name        VARCHAR(150)  NOT NULL,
     brand       VARCHAR(80)   NOT NULL,
     category    VARCHAR(50)   NOT NULL,
     specs       JSONB,
+    image_path  VARCHAR(255)
+) TABLESPACE ts_catalogos;
+
+-- =====================================================================
+-- TABLESPACE: ts_transaccional
+-- =====================================================================
+
+-- Existencias por sucursal: `id` es el SKU del producto (FK a products).
+CREATE TABLE inventory (
+    id          VARCHAR(30)   NOT NULL REFERENCES products(id),
+    branch_id   VARCHAR(20)   NOT NULL REFERENCES branches(id),
     stock       INTEGER       NOT NULL CHECK (stock >= 0),
     cost        NUMERIC(10,2) NOT NULL,
     price       NUMERIC(10,2) NOT NULL,
-    branch_id   VARCHAR(20)   NOT NULL REFERENCES branches(id),
-    image_path  VARCHAR(255)
+    PRIMARY KEY (id, branch_id) USING INDEX TABLESPACE ts_indices
 ) TABLESPACE ts_transaccional;
 
 CREATE TABLE purchase_orders (
     id          BIGINT GENERATED ALWAYS AS IDENTITY
                     PRIMARY KEY USING INDEX TABLESPACE ts_indices,
     vendor_id   VARCHAR(20)  NOT NULL REFERENCES vendors(id),
-    part_id     VARCHAR(30)  NOT NULL REFERENCES inventory(id),
+    part_id     VARCHAR(30)  NOT NULL REFERENCES products(id),
     qty         INTEGER      NOT NULL CHECK (qty > 0),
     status      VARCHAR(30)  NOT NULL,
     date        DATE         NOT NULL
@@ -92,7 +105,7 @@ CREATE TABLE customer_devices (
     model           VARCHAR(100),
     serial_number   VARCHAR(100),
     condition       TEXT,
-    password        VARCHAR(100),
+    password        BYTEA,          -- cifrada con pgp_sym_encrypt (pgcrypto)
     branch_id       VARCHAR(20)  REFERENCES branches(id)
 ) TABLESPACE ts_transaccional;
 
@@ -111,7 +124,7 @@ CREATE TABLE ticket_parts (
     id          BIGINT GENERATED ALWAYS AS IDENTITY
                     PRIMARY KEY USING INDEX TABLESPACE ts_indices,
     ticket_id   VARCHAR(20)   NOT NULL REFERENCES tickets(id),
-    part_id     VARCHAR(30)   NOT NULL REFERENCES inventory(id),
+    part_id     VARCHAR(30)   NOT NULL REFERENCES products(id),
     name        VARCHAR(150)  NOT NULL,
     qty         INTEGER       NOT NULL CHECK (qty > 0),
     cost        NUMERIC(10,2) NOT NULL,
@@ -149,8 +162,8 @@ CREATE TABLE appointments (
                         PRIMARY KEY USING INDEX TABLESPACE ts_indices,
     customer_name   VARCHAR(100) NOT NULL,
     service         VARCHAR(150) NOT NULL,
-    date            VARCHAR(20)  NOT NULL,
-    time            VARCHAR(20)  NOT NULL,
+    date            DATE         NOT NULL,
+    time            TIME         NOT NULL,
     status          VARCHAR(30)  NOT NULL,
     branch_id       VARCHAR(20)  NOT NULL REFERENCES branches(id)
 ) TABLESPACE ts_transaccional;
@@ -185,7 +198,7 @@ CREATE TABLE sale_items (
     id          BIGINT GENERATED ALWAYS AS IDENTITY
                     PRIMARY KEY USING INDEX TABLESPACE ts_indices,
     sale_id     BIGINT        NOT NULL REFERENCES sales(id),
-    item_id     VARCHAR(30)   NOT NULL REFERENCES inventory(id),
+    item_id     VARCHAR(30)   NOT NULL REFERENCES products(id),
     qty         INTEGER       NOT NULL CHECK (qty > 0),
     price       NUMERIC(10,2) NOT NULL,
     subtotal    NUMERIC(10,2) NOT NULL
@@ -218,6 +231,14 @@ CREATE INDEX idx_tickets_customer      ON tickets(customer_id)          TABLESPA
 CREATE INDEX idx_tickets_date          ON tickets(date)                 TABLESPACE ts_indices;
 CREATE INDEX idx_ticket_parts_ticket   ON ticket_parts(ticket_id)       TABLESPACE ts_indices;
 CREATE INDEX idx_inventory_branch      ON inventory(branch_id)          TABLESPACE ts_indices;
+
+-- Vista de inventario por sucursal con los datos del catalogo (misma forma
+-- que la tabla original, para que las consultas de lectura no cambien).
+CREATE VIEW v_inventory AS
+SELECT i.id, p.name, p.brand, p.category, p.specs, i.stock, i.cost, i.price,
+       i.branch_id, p.image_path
+FROM inventory i
+JOIN products p ON p.id = i.id;
 CREATE INDEX idx_payments_ticket       ON payments(ticket_id)           TABLESPACE ts_indices;
 CREATE INDEX idx_activities_ticket     ON activities(ticket_id)         TABLESPACE ts_indices;
 CREATE INDEX idx_audit_logs_branch_date ON audit_logs(branch_id, date)  TABLESPACE ts_indices;

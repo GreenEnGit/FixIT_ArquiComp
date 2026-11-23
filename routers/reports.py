@@ -81,7 +81,7 @@ async def financial_reports(request: Request, start_date: str = None, end_date: 
         SELECT a.*, i.name as item_name, i.brand as item_brand, i.cost as current_cost,
                si.qty as sale_qty
         FROM audit_logs a
-        LEFT JOIN inventory i ON a.item_id = i.id
+        LEFT JOIN v_inventory i ON a.item_id = i.id AND i.branch_id = a.branch_id
         LEFT JOIN sales s ON a.details = 'Ticket #' || s.id::text
         LEFT JOIN sale_items si ON s.id = si.sale_id AND a.item_id = si.item_id
         WHERE a.date >= ? AND a.date <= ?
@@ -135,7 +135,7 @@ async def financial_reports(request: Request, start_date: str = None, end_date: 
     total_cost = ticket_parts_cost + direct_sales_cost + mermas_cost
     net_profit = total_revenue - total_cost
 
-    return templates.TemplateResponse("reports.html", {
+    return templates.TemplateResponse(request, "reports.html", {
         "request": request, "user": user,
         "start_date": start_date, "end_date": end_date,
         "branch_id": selected_branch,

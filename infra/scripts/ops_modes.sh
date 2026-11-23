@@ -13,6 +13,17 @@ psql_exec() {
   podman exec --user postgres "$CONTAINER" psql -U postgres -d fixit_db -t -A -c "$1"
 }
 
+# Espera hasta 90 s a que la instancia acepte conexiones (bajo carga, un
+# reinicio con recuperacion puede tardar mas de 20 s).
+wait_ready() {
+  for i in $(seq 1 90); do
+    podman exec --user postgres "$CONTAINER" pg_isready -U postgres >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  echo "[ERROR] $CONTAINER no acepto conexiones en 90 s" >&2
+  return 1
+}
+
 usage() {
   echo "Uso: $0 [start|stop|status|recovery|normal|logs]"
   exit 1
@@ -22,10 +33,7 @@ case "${1:-}" in
   start)
     echo "== Alta del servicio (start) =="
     podman start "$CONTAINER"
-    for i in $(seq 1 20); do
-      podman exec --user postgres "$CONTAINER" pg_isready -U postgres >/dev/null 2>&1 && break
-      sleep 1
-    done
+    wait_ready
     podman exec --user postgres "$CONTAINER" pg_isready -U postgres
     ;;
 
@@ -53,20 +61,22 @@ case "${1:-}" in
     # para permanecer en recuperacion de forma sostenida y consultable.
     podman exec --user postgres "$CONTAINER" touch "$PGDATA_PATH/standby.signal"
     podman restart "$CONTAINER"
-    for i in $(seq 1 20); do
-      podman exec --user postgres "$CONTAINER" pg_isready -U postgres >/dev/null 2>&1 && break
-      sleep 1
-    done
+    wait_ready
     echo "pg_is_in_recovery():"
     psql_exec "SELECT pg_is_in_recovery();"
     ;;
 
   normal)
     echo "== Transicion a modo NORMAL (promocion) =="
-    psql_exec "SELECT pg_promote();" || true
-    sleep 2
+    wait_ready
+    if [[ "$(psql_exec "SELECT pg_is_in_recovery();")" == "t" ]]; then
+      # pg_promote(wait => true, wait_seconds => 120): espera a que termine la promocion.
+      psql_exec "SELECT pg_promote(true, 120);"
+    fi
     echo "pg_is_in_recovery():"
-    psql_exec "SELECT pg_is_in_recovery();"
+    state="$(psql_exec "SELECT pg_is_in_recovery();")"
+    echo "$state"
+    [[ "$state" == "f" ]]
     ;;
 
   logs)

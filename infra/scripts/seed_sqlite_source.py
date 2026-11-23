@@ -34,14 +34,17 @@ CREATE TABLE IF NOT EXISTS customers (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT, email TEXT, address TEXT);
 CREATE TABLE IF NOT EXISTS vendors (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, contact TEXT);
-CREATE TABLE IF NOT EXISTS inventory (
+CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, brand TEXT NOT NULL, category TEXT NOT NULL,
-    specs TEXT, stock INTEGER NOT NULL, cost REAL NOT NULL, price REAL NOT NULL,
-    branch_id TEXT NOT NULL, image_path TEXT, FOREIGN KEY (branch_id) REFERENCES branches(id));
+    specs TEXT, image_path TEXT);
+CREATE TABLE IF NOT EXISTS inventory (
+    id TEXT NOT NULL, branch_id TEXT NOT NULL, stock INTEGER NOT NULL, cost REAL NOT NULL,
+    price REAL NOT NULL, PRIMARY KEY (id, branch_id),
+    FOREIGN KEY (id) REFERENCES products(id), FOREIGN KEY (branch_id) REFERENCES branches(id));
 CREATE TABLE IF NOT EXISTS purchase_orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT, vendor_id TEXT NOT NULL, part_id TEXT NOT NULL,
     qty INTEGER NOT NULL, status TEXT NOT NULL, date TEXT NOT NULL,
-    FOREIGN KEY (vendor_id) REFERENCES vendors(id), FOREIGN KEY (part_id) REFERENCES inventory(id));
+    FOREIGN KEY (vendor_id) REFERENCES vendors(id), FOREIGN KEY (part_id) REFERENCES products(id));
 CREATE TABLE IF NOT EXISTS customer_devices (
     id TEXT PRIMARY KEY, customer_id TEXT, type TEXT, model TEXT, serial_number TEXT,
     condition TEXT, password TEXT, branch_id TEXT,
@@ -54,7 +57,7 @@ CREATE TABLE IF NOT EXISTS tickets (
 CREATE TABLE IF NOT EXISTS ticket_parts (
     id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id TEXT NOT NULL, part_id TEXT NOT NULL,
     name TEXT NOT NULL, qty INTEGER NOT NULL, cost REAL NOT NULL, price REAL NOT NULL,
-    FOREIGN KEY (ticket_id) REFERENCES tickets(id), FOREIGN KEY (part_id) REFERENCES inventory(id));
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id), FOREIGN KEY (part_id) REFERENCES products(id));
 CREATE TABLE IF NOT EXISTS payments (
     id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id TEXT NOT NULL, amount REAL NOT NULL,
     method TEXT NOT NULL, date TEXT NOT NULL, FOREIGN KEY (ticket_id) REFERENCES tickets(id));
@@ -89,7 +92,7 @@ CREATE TABLE IF NOT EXISTS sales (
 CREATE TABLE IF NOT EXISTS sale_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT, sale_id INTEGER NOT NULL, item_id TEXT NOT NULL,
     qty INTEGER NOT NULL, price REAL NOT NULL, subtotal REAL NOT NULL,
-    FOREIGN KEY (sale_id) REFERENCES sales(id), FOREIGN KEY (item_id) REFERENCES inventory(id));
+    FOREIGN KEY (sale_id) REFERENCES sales(id), FOREIGN KEY (item_id) REFERENCES products(id));
 """
 
 
@@ -116,43 +119,96 @@ def _dt(days_ago: int, hour: int, minute: int = 0) -> str:
 
 IMG = "/static/img/products/{}.webp"
 
-# (id, nombre, marca, categoria, specs, stock, costo, sucursal)
-INVENTORY = [
-    # --- Sucursal Norte ---
-    ("CAB-USB-C", "Cable USB-C a USB-C 1 m (60 W)", "Ugreen", "ACCESORIO", {"Longitud": "1 m", "Potencia": "60 W", "Datos": "USB 2.0 480 Mbps", "Color": "Negro"}, 25, 45.00, "NORTE"),
-    ("PST-MX4", "Pasta Térmica Arctic MX-4 4 g", "Arctic", "CONSUMIBLE", {"Peso": "4 g", "Conductividad": "8.5 W/mK", "Aplicaciones": "~20"}, 2, 120.00, "NORTE"),
-    ("RAM-8G-D4", "Memoria RAM 8 GB DDR4 3200 MHz", "Kingston Fury", "RAM", {"Capacidad": "8 GB", "Tipo": "DDR4", "Velocidad": "3200 MHz", "Formato": "UDIMM", "Latencia": "CL16"}, 12, 450.00, "NORTE"),
-    ("RAM-16G-D5", "Memoria RAM 16 GB DDR5 5200 MHz", "Corsair Vengeance", "RAM", {"Capacidad": "16 GB", "Tipo": "DDR5", "Velocidad": "5200 MHz", "Formato": "UDIMM", "Latencia": "CL40"}, 6, 950.00, "NORTE"),
-    ("SSD-500G-NVME", "SSD 500 GB NVMe M.2 2280", "WD Blue SN580", "ALMACENAMIENTO", {"Capacidad": "500 GB", "Interfaz": "PCIe Gen4 x4", "Formato": "M.2 2280", "Lectura": "4000 MB/s"}, 3, 700.00, "NORTE"),
-    ("HDD-1TB-35", "Disco Duro 1 TB 7200 rpm 3.5\"", "Seagate BarraCuda", "ALMACENAMIENTO", {"Capacidad": "1 TB", "Interfaz": "SATA III", "Velocidad": "7200 rpm", "Caché": "64 MB"}, 5, 820.00, "NORTE"),
-    ("USB-64G", "Memoria USB 64 GB USB 3.2", "Kingston DataTraveler", "ALMACENAMIENTO", {"Capacidad": "64 GB", "Interfaz": "USB 3.2 Gen 1", "Lectura": "100 MB/s"}, 30, 95.00, "NORTE"),
-    ("CPU-I5-12400F", "Procesador Intel Core i5-12400F", "Intel", "CPU", {"Socket": "LGA 1700", "Núcleos": "6", "Hilos": "12", "Frecuencia": "2.5 / 4.4 GHz", "TDP": "65 W"}, 2, 2500.00, "NORTE"),
-    ("GPU-RTX-4060", "Tarjeta Gráfica GeForce RTX 4060 8 GB", "MSI Ventus 2X", "GPU", {"VRAM": "8 GB GDDR6", "Interfaz": "PCIe 4.0 x8", "Puertos": "3x DP, 1x HDMI", "Consumo": "115 W"}, 1, 5800.00, "NORTE"),
-    ("PWR-650W", "Fuente de Poder 650 W 80+ Bronze", "EVGA", "FUENTE", {"Potencia": "650 W", "Certificación": "80+ Bronze", "Modular": "No", "Ventilador": "120 mm"}, 5, 950.00, "NORTE"),
-    ("FAN-120MM", "Ventilador ARGB 120 mm para gabinete", "Cooler Master", "ENFRIAMIENTO", {"Tamaño": "120 mm", "Iluminación": "ARGB", "RPM": "650-1800", "Conector": "4 pines PWM"}, 15, 200.00, "NORTE"),
-    ("CLR-TWR-120", "Disipador de Torre para CPU 120 mm", "DeepCool AK400", "ENFRIAMIENTO", {"Heatpipes": "4", "Altura": "155 mm", "TDP soportado": "220 W", "Sockets": "LGA1700 / AM4 / AM5"}, 4, 520.00, "NORTE"),
-    ("BAT-LAP-HP", "Batería para Laptop HP 41 Wh (HT03XL)", "HP", "BATERIA", {"Capacidad": "41 Wh", "Voltaje": "11.34 V", "Celdas": "3", "Compatibilidad": "HP 240/250 G7"}, 3, 780.00, "NORTE"),
-    ("KBD-MEC-RGB", "Teclado Mecánico RGB Switch Rojo", "Redragon Kumara", "PERIFERICO", {"Switch": "Outemu Red", "Formato": "TKL 87 teclas", "Iluminación": "RGB", "Conexión": "USB"}, 7, 650.00, "NORTE"),
-    ("MOU-OPT-USB", "Mouse Óptico Inalámbrico", "Logitech M185", "PERIFERICO", {"Sensor": "Óptico 1000 DPI", "Conexión": "Receptor USB 2.4 GHz", "Batería": "1x AA (12 meses)"}, 18, 180.00, "NORTE"),
-    ("ALC-ISO-99", "Alcohol Isopropílico 99% 500 ml", "Electroclean", "CONSUMIBLE", {"Pureza": "99.9%", "Contenido": "500 ml", "Uso": "Limpieza de placas y contactos"}, 9, 85.00, "NORTE"),
-    ("KIT-DESARM-24", "Kit de Desarmadores de Precisión 24 pzs", "Truper", "HERRAMIENTA", {"Piezas": "24 puntas", "Tipos": "Phillips, Torx, Pentalobe, Plana", "Mango": "Aluminio"}, 6, 210.00, "NORTE"),
-    # --- Sucursal Centro ---
-    ("CAB-HDMI-2M", "Cable HDMI 2.1 de 2 metros", "AmazonBasics", "ACCESORIO", {"Longitud": "2 m", "Versión": "2.1", "Resolución": "8K@60Hz / 4K@120Hz"}, 10, 80.00, "CENTRO"),
-    ("CAB-RJ45-3M", "Cable de Red Cat 6 de 3 metros", "Steren", "RED", {"Categoría": "Cat 6", "Longitud": "3 m", "Velocidad": "1 Gbps", "Conector": "RJ45"}, 20, 60.00, "CENTRO"),
-    ("PST-TG1", "Pasta Térmica Kryonaut 1 g", "Thermal Grizzly", "CONSUMIBLE", {"Peso": "1 g", "Conductividad": "12.5 W/mK"}, 5, 250.00, "CENTRO"),
-    ("PAD-TERM-1MM", "Thermal Pads 1 mm (paquete 4 pzs)", "Gelid GP-Extreme", "CONSUMIBLE", {"Grosor": "1 mm", "Conductividad": "12 W/mK", "Medida": "80 x 40 mm"}, 7, 140.00, "CENTRO"),
-    ("AIR-COMP-400", "Aire Comprimido 400 ml", "Silimex", "CONSUMIBLE", {"Contenido": "400 ml", "Uso": "Limpieza de polvo en equipos"}, 12, 95.00, "CENTRO"),
-    ("SSD-1TB-SATA", "SSD 1 TB SATA III 2.5\"", "Crucial BX500", "ALMACENAMIENTO", {"Capacidad": "1 TB", "Interfaz": "SATA III", "Formato": "2.5 pulgadas", "Lectura": "540 MB/s"}, 8, 850.00, "CENTRO"),
-    ("RAM-8G-SO4", "Memoria RAM 8 GB DDR4 SO-DIMM (Laptop)", "Crucial", "RAM", {"Capacidad": "8 GB", "Tipo": "DDR4", "Velocidad": "3200 MHz", "Formato": "SO-DIMM"}, 9, 420.00, "CENTRO"),
-    ("CPU-R5-5600X", "Procesador AMD Ryzen 5 5600X", "AMD", "CPU", {"Socket": "AM4", "Núcleos": "6", "Hilos": "12", "Frecuencia": "3.7 / 4.6 GHz", "TDP": "65 W"}, 4, 2800.00, "CENTRO"),
-    ("MB-B550M", "Tarjeta Madre B550M AM4", "Gigabyte B550M DS3H", "MOTHERBOARD", {"Socket": "AM4", "Chipset": "B550", "Formato": "Micro ATX", "RAM Máx.": "128 GB"}, 3, 1900.00, "CENTRO"),
-    ("GPU-RX-7600", "Tarjeta Gráfica Radeon RX 7600 8 GB", "Sapphire Pulse", "GPU", {"VRAM": "8 GB GDDR6", "Interfaz": "PCIe 4.0 x8", "Puertos": "3x DP, 1x HDMI", "Consumo": "165 W"}, 2, 5200.00, "CENTRO"),
-    ("CASE-ATX-MID", "Gabinete ATX Media Torre con Cristal", "Yeyian", "GABINETE", {"Formato": "ATX / Micro ATX", "Panel": "Cristal templado", "Ventiladores": "3x 120 mm incluidos"}, 3, 1100.00, "CENTRO"),
-    ("CHG-LAP-65W", "Cargador para Laptop 65 W USB-C", "Lenovo", "ENERGIA", {"Potencia": "65 W", "Conector": "USB-C PD", "Voltaje": "20 V / 3.25 A"}, 8, 390.00, "CENTRO"),
-    ("WIFI-USB", "Adaptador WiFi USB Dual Band AC600", "TP-Link Archer T2U", "RED", {"Banda": "2.4 / 5 GHz", "Estándar": "AC600", "Interfaz": "USB 2.0"}, 11, 220.00, "CENTRO"),
-    ("RTR-AX1800", "Router WiFi 6 AX1800", "TP-Link Archer AX21", "RED", {"Estándar": "WiFi 6 (802.11ax)", "Velocidad": "1800 Mbps", "Puertos": "4x LAN Gigabit"}, 4, 1150.00, "CENTRO"),
-    ("MON-24-IPS", "Monitor 24\" IPS Full HD 75 Hz", "LG 24MK600", "MONITOR", {"Tamaño": "23.8\"", "Panel": "IPS", "Resolución": "1920x1080", "Frecuencia": "75 Hz"}, 3, 2300.00, "CENTRO"),
-    ("CAM-1080P", "Cámara Web Full HD 1080p", "Logitech C920", "PERIFERICO", {"Resolución": "1080p @ 30 fps", "Micrófono": "Estéreo", "Enfoque": "Automático"}, 6, 520.00, "CENTRO"),
+# PIN / contraseña de desbloqueo que el cliente deja al recibir el equipo.
+# En SQLite (sistema legado) quedan en texto plano; la migración a PostgreSQL
+# las cifra con pgcrypto.
+DEVICE_UNLOCK = {
+    "DEV-001": "PIN 4821", "DEV-005": "lenovo2024", "DEV-006": "Patrón: L invertida",
+    "DEV-008": "macair17!", "DEV-010": "PIN 0912", "DEV-012": "tufgamer#5", "DEV-014": "hp250-casa",
+}
+
+# Catálogo maestro (un SKU = un producto): (id, nombre, marca, categoria, specs)
+PRODUCTS = [
+    ("CAB-USB-C", "Cable USB-C a USB-C 1 m (60 W)", "Ugreen", "ACCESORIO", {"Longitud": "1 m", "Potencia": "60 W", "Datos": "USB 2.0 480 Mbps", "Color": "Negro"}),
+    ("PST-MX4", "Pasta Térmica Arctic MX-4 4 g", "Arctic", "CONSUMIBLE", {"Peso": "4 g", "Conductividad": "8.5 W/mK", "Aplicaciones": "~20"}),
+    ("RAM-8G-D4", "Memoria RAM 8 GB DDR4 3200 MHz", "Kingston Fury", "RAM", {"Capacidad": "8 GB", "Tipo": "DDR4", "Velocidad": "3200 MHz", "Formato": "UDIMM", "Latencia": "CL16"}),
+    ("RAM-16G-D5", "Memoria RAM 16 GB DDR5 5200 MHz", "Corsair Vengeance", "RAM", {"Capacidad": "16 GB", "Tipo": "DDR5", "Velocidad": "5200 MHz", "Formato": "UDIMM", "Latencia": "CL40"}),
+    ("SSD-500G-NVME", "SSD 500 GB NVMe M.2 2280", "WD Blue SN580", "ALMACENAMIENTO", {"Capacidad": "500 GB", "Interfaz": "PCIe Gen4 x4", "Formato": "M.2 2280", "Lectura": "4000 MB/s"}),
+    ("HDD-1TB-35", "Disco Duro 1 TB 7200 rpm 3.5\"", "Seagate BarraCuda", "ALMACENAMIENTO", {"Capacidad": "1 TB", "Interfaz": "SATA III", "Velocidad": "7200 rpm", "Caché": "64 MB"}),
+    ("USB-64G", "Memoria USB 64 GB USB 3.2", "Kingston DataTraveler", "ALMACENAMIENTO", {"Capacidad": "64 GB", "Interfaz": "USB 3.2 Gen 1", "Lectura": "100 MB/s"}),
+    ("CPU-I5-12400F", "Procesador Intel Core i5-12400F", "Intel", "CPU", {"Socket": "LGA 1700", "Núcleos": "6", "Hilos": "12", "Frecuencia": "2.5 / 4.4 GHz", "TDP": "65 W"}),
+    ("GPU-RTX-4060", "Tarjeta Gráfica GeForce RTX 4060 8 GB", "MSI Ventus 2X", "GPU", {"VRAM": "8 GB GDDR6", "Interfaz": "PCIe 4.0 x8", "Puertos": "3x DP, 1x HDMI", "Consumo": "115 W"}),
+    ("PWR-650W", "Fuente de Poder 650 W 80+ Bronze", "EVGA", "FUENTE", {"Potencia": "650 W", "Certificación": "80+ Bronze", "Modular": "No", "Ventilador": "120 mm"}),
+    ("FAN-120MM", "Ventilador ARGB 120 mm para gabinete", "Cooler Master", "ENFRIAMIENTO", {"Tamaño": "120 mm", "Iluminación": "ARGB", "RPM": "650-1800", "Conector": "4 pines PWM"}),
+    ("CLR-TWR-120", "Disipador de Torre para CPU 120 mm", "DeepCool AK400", "ENFRIAMIENTO", {"Heatpipes": "4", "Altura": "155 mm", "TDP soportado": "220 W", "Sockets": "LGA1700 / AM4 / AM5"}),
+    ("BAT-LAP-HP", "Batería para Laptop HP 41 Wh (HT03XL)", "HP", "BATERIA", {"Capacidad": "41 Wh", "Voltaje": "11.34 V", "Celdas": "3", "Compatibilidad": "HP 240/250 G7"}),
+    ("KBD-MEC-RGB", "Teclado Mecánico RGB Switch Rojo", "Redragon Kumara", "PERIFERICO", {"Switch": "Outemu Red", "Formato": "TKL 87 teclas", "Iluminación": "RGB", "Conexión": "USB"}),
+    ("MOU-OPT-USB", "Mouse Óptico Inalámbrico", "Logitech M185", "PERIFERICO", {"Sensor": "Óptico 1000 DPI", "Conexión": "Receptor USB 2.4 GHz", "Batería": "1x AA (12 meses)"}),
+    ("ALC-ISO-99", "Alcohol Isopropílico 99% 500 ml", "Electroclean", "CONSUMIBLE", {"Pureza": "99.9%", "Contenido": "500 ml", "Uso": "Limpieza de placas y contactos"}),
+    ("KIT-DESARM-24", "Kit de Desarmadores de Precisión 24 pzs", "Truper", "HERRAMIENTA", {"Piezas": "24 puntas", "Tipos": "Phillips, Torx, Pentalobe, Plana", "Mango": "Aluminio"}),
+    ("CAB-HDMI-2M", "Cable HDMI 2.1 de 2 metros", "AmazonBasics", "ACCESORIO", {"Longitud": "2 m", "Versión": "2.1", "Resolución": "8K@60Hz / 4K@120Hz"}),
+    ("CAB-RJ45-3M", "Cable de Red Cat 6 de 3 metros", "Steren", "RED", {"Categoría": "Cat 6", "Longitud": "3 m", "Velocidad": "1 Gbps", "Conector": "RJ45"}),
+    ("PST-TG1", "Pasta Térmica Kryonaut 1 g", "Thermal Grizzly", "CONSUMIBLE", {"Peso": "1 g", "Conductividad": "12.5 W/mK"}),
+    ("PAD-TERM-1MM", "Thermal Pads 1 mm (paquete 4 pzs)", "Gelid GP-Extreme", "CONSUMIBLE", {"Grosor": "1 mm", "Conductividad": "12 W/mK", "Medida": "80 x 40 mm"}),
+    ("AIR-COMP-400", "Aire Comprimido 400 ml", "Silimex", "CONSUMIBLE", {"Contenido": "400 ml", "Uso": "Limpieza de polvo en equipos"}),
+    ("SSD-1TB-SATA", "SSD 1 TB SATA III 2.5\"", "Crucial BX500", "ALMACENAMIENTO", {"Capacidad": "1 TB", "Interfaz": "SATA III", "Formato": "2.5 pulgadas", "Lectura": "540 MB/s"}),
+    ("RAM-8G-SO4", "Memoria RAM 8 GB DDR4 SO-DIMM (Laptop)", "Crucial", "RAM", {"Capacidad": "8 GB", "Tipo": "DDR4", "Velocidad": "3200 MHz", "Formato": "SO-DIMM"}),
+    ("CPU-R5-5600X", "Procesador AMD Ryzen 5 5600X", "AMD", "CPU", {"Socket": "AM4", "Núcleos": "6", "Hilos": "12", "Frecuencia": "3.7 / 4.6 GHz", "TDP": "65 W"}),
+    ("MB-B550M", "Tarjeta Madre B550M AM4", "Gigabyte B550M DS3H", "MOTHERBOARD", {"Socket": "AM4", "Chipset": "B550", "Formato": "Micro ATX", "RAM Máx.": "128 GB"}),
+    ("GPU-RX-7600", "Tarjeta Gráfica Radeon RX 7600 8 GB", "Sapphire Pulse", "GPU", {"VRAM": "8 GB GDDR6", "Interfaz": "PCIe 4.0 x8", "Puertos": "3x DP, 1x HDMI", "Consumo": "165 W"}),
+    ("CASE-ATX-MID", "Gabinete ATX Media Torre con Cristal", "Yeyian", "GABINETE", {"Formato": "ATX / Micro ATX", "Panel": "Cristal templado", "Ventiladores": "3x 120 mm incluidos"}),
+    ("CHG-LAP-65W", "Cargador para Laptop 65 W USB-C", "Lenovo", "ENERGIA", {"Potencia": "65 W", "Conector": "USB-C PD", "Voltaje": "20 V / 3.25 A"}),
+    ("WIFI-USB", "Adaptador WiFi USB Dual Band AC600", "TP-Link Archer T2U", "RED", {"Banda": "2.4 / 5 GHz", "Estándar": "AC600", "Interfaz": "USB 2.0"}),
+    ("RTR-AX1800", "Router WiFi 6 AX1800", "TP-Link Archer AX21", "RED", {"Estándar": "WiFi 6 (802.11ax)", "Velocidad": "1800 Mbps", "Puertos": "4x LAN Gigabit"}),
+    ("MON-24-IPS", "Monitor 24\" IPS Full HD 75 Hz", "LG 24MK600", "MONITOR", {"Tamaño": "23.8\"", "Panel": "IPS", "Resolución": "1920x1080", "Frecuencia": "75 Hz"}),
+    ("CAM-1080P", "Cámara Web Full HD 1080p", "Logitech C920", "PERIFERICO", {"Resolución": "1080p @ 30 fps", "Micrófono": "Estéreo", "Enfoque": "Automático"}),
+]
+
+# Existencias por sucursal: (id, sucursal, stock, costo). Varios productos se
+# venden en ambas sucursales con stock y costo propios.
+STOCK = [
+    ("CAB-USB-C", "NORTE", 25, 45.00),
+    ("PST-MX4", "NORTE", 2, 120.00),
+    ("RAM-8G-D4", "NORTE", 12, 450.00),
+    ("RAM-16G-D5", "NORTE", 6, 950.00),
+    ("SSD-500G-NVME", "NORTE", 3, 700.00),
+    ("HDD-1TB-35", "NORTE", 5, 820.00),
+    ("USB-64G", "NORTE", 30, 95.00),
+    ("CPU-I5-12400F", "NORTE", 2, 2500.00),
+    ("GPU-RTX-4060", "NORTE", 1, 5800.00),
+    ("PWR-650W", "NORTE", 5, 950.00),
+    ("FAN-120MM", "NORTE", 15, 200.00),
+    ("CLR-TWR-120", "NORTE", 4, 520.00),
+    ("BAT-LAP-HP", "NORTE", 3, 780.00),
+    ("KBD-MEC-RGB", "NORTE", 7, 650.00),
+    ("MOU-OPT-USB", "NORTE", 18, 180.00),
+    ("ALC-ISO-99", "NORTE", 9, 85.00),
+    ("KIT-DESARM-24", "NORTE", 6, 210.00),
+    ("CAB-HDMI-2M", "CENTRO", 10, 80.00),
+    ("CAB-RJ45-3M", "CENTRO", 20, 60.00),
+    ("PST-TG1", "CENTRO", 5, 250.00),
+    ("PAD-TERM-1MM", "CENTRO", 7, 140.00),
+    ("AIR-COMP-400", "CENTRO", 12, 95.00),
+    ("SSD-1TB-SATA", "CENTRO", 8, 850.00),
+    ("RAM-8G-SO4", "CENTRO", 9, 420.00),
+    ("CPU-R5-5600X", "CENTRO", 4, 2800.00),
+    ("MB-B550M", "CENTRO", 3, 1900.00),
+    ("GPU-RX-7600", "CENTRO", 2, 5200.00),
+    ("CASE-ATX-MID", "CENTRO", 3, 1100.00),
+    ("CHG-LAP-65W", "CENTRO", 8, 390.00),
+    ("WIFI-USB", "CENTRO", 11, 220.00),
+    ("RTR-AX1800", "CENTRO", 4, 1150.00),
+    ("MON-24-IPS", "CENTRO", 3, 2300.00),
+    ("CAM-1080P", "CENTRO", 6, 520.00),
+    ("CAB-HDMI-2M", "NORTE", 14, 78.00),
+    ("RAM-8G-D4", "CENTRO", 7, 460.00),
+    ("SSD-500G-NVME", "CENTRO", 5, 690.00),
+    ("PST-MX4", "CENTRO", 6, 118.00),
+    ("MOU-OPT-USB", "CENTRO", 10, 182.00),
+    ("USB-64G", "CENTRO", 22, 92.00),
+    ("WIFI-USB", "NORTE", 4, 225.00),
+    ("SSD-1TB-SATA", "NORTE", 3, 860.00),
+    ("AIR-COMP-400", "NORTE", 8, 97.00),
 ]
 
 
@@ -190,12 +246,12 @@ def seed(conn):
         ("VEND-03", "Mayorista de Redes del Bajío", "pedidos@redesbajio.ejemplo.com"),
         ("VEND-04", "Refacciones Laptop Express", "compras@laptopexpress.ejemplo.com")])
 
-    for item_id, name, brand, category, specs, stock, cost, branch_id in INVENTORY:
-        c.execute(
-            "INSERT OR IGNORE INTO inventory (id, name, brand, category, specs, stock, cost, price, branch_id, image_path) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (item_id, name, brand, category, json.dumps(specs, ensure_ascii=False), stock, cost,
-             _precio_matricial(cost), branch_id, IMG.format(item_id.lower())))
+    for item_id, name, brand, category, specs in PRODUCTS:
+        c.execute("INSERT OR IGNORE INTO products (id, name, brand, category, specs, image_path) VALUES (?, ?, ?, ?, ?, ?)",
+                  (item_id, name, brand, category, json.dumps(specs, ensure_ascii=False), IMG.format(item_id.lower())))
+    for item_id, branch_id, stock, cost in STOCK:
+        c.execute("INSERT OR IGNORE INTO inventory (id, branch_id, stock, cost, price) VALUES (?, ?, ?, ?, ?)",
+                  (item_id, branch_id, stock, cost, _precio_matricial(cost)))
 
     c.executemany("INSERT OR IGNORE INTO loaners (id, type, model, status, branch_id) VALUES (?, ?, ?, ?, ?)", [
         ("LOAN-01", "LAPTOP", "Dell Latitude 5490", "DISPONIBLE", "NORTE"),
@@ -233,7 +289,8 @@ def seed(conn):
     c.executemany(
         "INSERT OR IGNORE INTO customer_devices "
         "(id, customer_id, type, model, serial_number, condition, password, branch_id) "
-        "VALUES (?, ?, ?, ?, ?, ?, '', ?)", devices)
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [d[:6] + (DEVICE_UNLOCK.get(d[0], ""),) + d[6:] for d in devices])
 
     # Tickets: (id, estado, cliente, equipo, sintoma, dias_atras, mano_de_obra, sucursal)
     tickets = [
@@ -257,7 +314,9 @@ def seed(conn):
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [(t[0], t[1], t[2], t[3], t[4], _d(t[5]), t[6], t[7]) for t in tickets])
 
-    inv = {i[0]: i for i in INVENTORY}
+    names = {p[0]: p[1] for p in PRODUCTS}
+    stock_by = {(i, b): cost for i, b, _, cost in STOCK}  # (sku, sucursal) -> costo
+    branch_of = {t[0]: t[7] for t in tickets}
     parts = [  # (ticket, refaccion, cantidad)
         ("REP-001022", "RAM-8G-D4", 1), ("REP-001024", "MB-B550M", 1),
         ("REP-001025", "SSD-500G-NVME", 1), ("REP-001025", "RAM-8G-D4", 1),
@@ -268,10 +327,10 @@ def seed(conn):
     ]
     totals = {}
     for ticket_id, part_id, qty in parts:
-        _, name, _, _, _, _, cost, _ = inv[part_id]
+        cost = stock_by[(part_id, branch_of[ticket_id])]
         price = _precio_matricial(cost)
         c.execute("INSERT INTO ticket_parts (ticket_id, part_id, name, qty, cost, price) VALUES (?, ?, ?, ?, ?, ?)",
-                  (ticket_id, part_id, name, qty, cost, price))
+                  (ticket_id, part_id, names[part_id], qty, cost, price))
         totals[ticket_id] = totals.get(ticket_id, 0) + price * qty
 
     methods = ["Tarjeta", "Efectivo", "Transferencia"]
@@ -318,13 +377,13 @@ def seed(conn):
         (16, 10, "CENTRO", "tecnico_centro", [("AIR-COMP-400", 2), ("PAD-TERM-1MM", 1)]),
     ]
     for days, hour, branch_id, username, lines in sales:
-        lines = [(i, q) for i, q in lines if q > 0 and inv[i][7] == branch_id]
-        total = sum(_precio_matricial(inv[i][6]) * q for i, q in lines)
+        lines = [(i, q) for i, q in lines if q > 0 and (i, branch_id) in stock_by]
+        total = sum(_precio_matricial(stock_by[(i, branch_id)]) * q for i, q in lines)
         c.execute("INSERT INTO sales (total, date, branch_id, username, status) VALUES (?, ?, ?, ?, 'COMPLETADA')",
                   (round(total, 2), _dt(days, hour, 30), branch_id, username))
         sale_id = c.lastrowid
         for item_id, qty in lines:
-            price = _precio_matricial(inv[item_id][6])
+            price = _precio_matricial(stock_by[(item_id, branch_id)])
             c.execute("INSERT INTO sale_items (sale_id, item_id, qty, price, subtotal) VALUES (?, ?, ?, ?, ?)",
                       (sale_id, item_id, qty, price, round(price * qty, 2)))
 

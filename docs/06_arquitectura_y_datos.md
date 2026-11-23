@@ -8,7 +8,7 @@
 graph TB
     subgraph VM["VM Linux Mint 22 — Podman 4.9.3 / Python 3.12.3"]
         subgraph AppLayer["Capa de Aplicación FixIT_ArquiComp y Evidencias"]
-            FastAPI["FastAPI 0.115.0 (main.py + routers)\nPool psycopg 3.2.2"]
+            FastAPI["FastAPI 0.115.0 + Uvicorn 0.31.0 (main.py + routers)\nhttp://fixittester.com (:80, servicio systemd)\npsycopg 3.2.2"]
             ETL["migrate_sqlite_to_pg.py\n& Faker 30.1.0 (seed_workload.py)"]
             Capturer["Playwright 1.48.0 + mmdc 11.2.0\n(capture_evidence.py -> evidencias/*.png)"]
             SQLiteDB[("taller_prototipo.db\nSQLite 3.45.1 (Origen U5.T5.S5)")]
@@ -16,7 +16,7 @@ graph TB
 
         subgraph PodmanNet["Red Podman: fixit_dba_net"]
             subgraph Master["Contenedor: fixit_pg_master (PostgreSQL 16.4 — Puerto 5432)"]
-                PGMem["Memoria: shared_buffers=256MB | work_mem=16MB | wal_buffers=16MB\nProcesos: checkpointer, bgwriter, walwriter, autovacuum, stats collector"]
+                PGMem["Memoria: shared_buffers=256MB | work_mem=16MB | wal_buffers=16MB\nProcesos: checkpointer, background writer, walwriter,\nautovacuum launcher, archiver, logger, walsender"]
                 TS1[("ts_catalogos")]
                 TS2[("ts_transaccional")]
                 TS3[("ts_auditoria")]
@@ -36,7 +36,7 @@ graph TB
     SQLiteDB -->|Extracción ETL| ETL
     ETL -->|Carga Transaccional| Master
     FastAPI -->|Lectura/Escritura ACID :5432| Master
-    FastAPI -.->|Lectura Reportes :5433| Replica
+    DBA["DBA (psql)"] -.->|Consultas de solo lectura :5433| Replica
     Master ==>|Streaming Replication WAL| Replica
     WAL ==>|Archivado Continuo / PITR| Backups
     Capturer -.->|Captura Web :8000 y Terminal :5432| FastAPI
@@ -49,10 +49,10 @@ graph TB
 ```mermaid
 graph LR
     DB[("Base de Datos: fixit_db\n(PostgreSQL 16.4)")]
-    DB --> TS_CAT["Tablespace: ts_catalogos\n/var/lib/postgresql/tablespaces/ts_catalogos\nTablas: branches, users, customers,\ncustomer_devices, suppliers, categories,\nservice_catalog, kb_articles,\nwarranty_policies, system_settings"]
-    DB --> TS_TRX["Tablespace: ts_transaccional\n/var/lib/postgresql/tablespaces/ts_transaccional\nTablas: tickets, ticket_parts,\nticket_status_history, inventory,\ninventory_movements, purchase_orders,\npurchase_order_items, payments,\ncash_register_sessions, warranties"]
-    DB --> TS_AUD["Tablespace: ts_auditoria\n/var/lib/postgresql/tablespaces/ts_auditoria\nTablas: audit_logs,\nuser_disk_quotas, backup_history"]
-    DB --> TS_IDX["Tablespace: ts_indices\n/var/lib/postgresql/tablespaces/ts_indices\nObjetos: Todos los índices B-Tree\nsecundarios del esquema public"]
+    DB --> TS_CATALOGOS["Tablespace: ts_catalogos\n/var/lib/postgresql/tablespaces/ts_catalogos\n6 tablas:\nbranches, customers, knowledge_base\nproducts, users, vendors"]
+    DB --> TS_TRANSACCIONAL["Tablespace: ts_transaccional\n/var/lib/postgresql/tablespaces/ts_transaccional\n13 tablas:\nactivities, appointments, customer_devices\ninventory, loaners, payments\npurchase_orders, sale_items, sales\nticket_images, ticket_parts, tickets\nwarranties"]
+    DB --> TS_AUDITORIA["Tablespace: ts_auditoria\n/var/lib/postgresql/tablespaces/ts_auditoria\n2 tablas:\naudit_logs, user_disk_quotas"]
+    DB --> TS_INDICES["Tablespace: ts_indices\n/var/lib/postgresql/tablespaces/ts_indices\n46 índices (PK, UNIQUE y B-Tree secundarios)"]
 ```
 
 ## 3. Modelo Relacional Físico Normalizado en 3FN (`D03_modelo_relacional_3fn.png` — Unidad 3)
@@ -61,101 +61,188 @@ graph LR
 
 ```mermaid
 erDiagram
-    branches ||--o{ users : "emplea"
-    branches ||--o{ tickets : "opera"
-    branches ||--o{ inventory : "almacena"
-    customers ||--o{ customer_devices : "posee"
-    customers ||--o{ tickets : "solicita"
-    customer_devices ||--o{ tickets : "ingresa_en"
-    users ||--o{ tickets : "atiende"
-    tickets ||--o{ ticket_parts : "consume"
-    tickets ||--o{ ticket_status_history : "registra"
-    tickets ||--o{ payments : "liquida"
-    tickets ||--o| warranties : "ampara"
-    inventory ||--o{ ticket_parts : "suministra"
-    inventory ||--o{ inventory_movements : "mueve"
-    users ||--o{ audit_logs : "ejecuta"
-
-    branches {
-        int id PK
-        varchar name
-        varchar address
-        varchar phone
-        boolean is_active
+    branches ||--o{ activities : "branch_id"
+    branches ||--o{ appointments : "branch_id"
+    branches ||--o{ audit_logs : "branch_id"
+    branches ||--o{ customer_devices : "branch_id"
+    branches ||--o{ inventory : "branch_id"
+    branches ||--o{ loaners : "branch_id"
+    branches ||--o{ sales : "branch_id"
+    branches ||--o{ tickets : "branch_id"
+    branches ||--o{ users : "branch_id"
+    customer_devices ||--o{ tickets : "device_id"
+    customers ||--o{ customer_devices : "customer_id"
+    customers ||--o{ tickets : "customer_id"
+    products ||--o{ inventory : "id"
+    products ||--o{ purchase_orders : "part_id"
+    products ||--o{ sale_items : "item_id"
+    products ||--o{ ticket_parts : "part_id"
+    sales ||--o{ sale_items : "sale_id"
+    tickets ||--o{ activities : "ticket_id"
+    tickets ||--o{ payments : "ticket_id"
+    tickets ||--o{ ticket_images : "ticket_id"
+    tickets ||--o{ ticket_parts : "ticket_id"
+    tickets ||--o{ warranties : "ticket_id"
+    users ||--o{ sales : "username"
+    vendors ||--o{ purchase_orders : "vendor_id"
+    activities {
+        bigint id PK
+        varchar ticket_id FK
+        text action
+        timestamp time
+        varchar branch_id FK
     }
-    users {
-        int id PK
-        int branch_id FK
-        varchar username UK
-        varchar password_hash
-        varchar role
-        boolean is_active
-    }
-    customers {
-        int id PK
-        varchar full_name
-        varchar phone
-        varchar email
-        timestamptz created_at
-    }
-    customer_devices {
-        int id PK
-        int customer_id FK
-        varchar device_type
-        varchar brand
-        varchar model
-        varchar serial_number
-    }
-    tickets {
-        int id PK
-        int branch_id FK
-        int customer_id FK
-        int device_id FK
-        int assigned_tech_id FK
+    appointments {
+        bigint id PK
+        varchar customer_name
+        varchar service
+        date date
+        time time
         varchar status
-        text problem_description
-        text diagnosis
-        numeric estimated_cost
-        numeric final_cost
-        timestamptz created_at
-        timestamptz updated_at
-    }
-    inventory {
-        int id PK
-        int branch_id FK
-        varchar sku UK
-        varchar part_name
-        int stock
-        int min_stock
-        numeric unit_cost
-        numeric sale_price
-    }
-    ticket_parts {
-        int id PK
-        int ticket_id FK
-        int part_id FK
-        int quantity
-        numeric unit_price
-    }
-    payments {
-        int id PK
-        int ticket_id FK
-        int received_by FK
-        numeric amount
-        varchar payment_method
-        timestamptz paid_at
+        varchar branch_id FK
     }
     audit_logs {
         bigint id PK
-        varchar db_user
-        int app_user_id
-        varchar table_name
-        varchar operation
-        varchar record_id
+        varchar username
+        varchar action
+        varchar item_id
+        text details
+        numeric monetary_impact
+        timestamp date
+        varchar branch_id FK
         jsonb old_data
         jsonb new_data
-        inet client_ip
-        timestamptz created_at
+    }
+    branches {
+        varchar id PK
+        varchar name
+        numeric tax_rate
+    }
+    customer_devices {
+        varchar id PK
+        varchar customer_id FK
+        varchar type
+        varchar model
+        varchar serial_number
+        text condition
+        bytea password
+        varchar branch_id FK
+    }
+    customers {
+        varchar id PK
+        varchar name
+        varchar phone
+        varchar email
+        varchar address
+    }
+    inventory {
+        varchar id PK, FK
+        int stock
+        numeric cost
+        numeric price
+        varchar branch_id PK, FK
+    }
+    knowledge_base {
+        int id PK
+        varchar title
+        text keywords
+        text content
+        varchar category
+    }
+    loaners {
+        varchar id PK
+        varchar type
+        varchar model
+        varchar status
+        varchar branch_id FK
+    }
+    payments {
+        bigint id PK
+        varchar ticket_id FK
+        numeric amount
+        varchar method
+        date date
+    }
+    products {
+        varchar id PK
+        varchar name
+        varchar brand
+        varchar category
+        jsonb specs
+        varchar image_path
+    }
+    purchase_orders {
+        bigint id PK
+        varchar vendor_id FK
+        varchar part_id FK
+        int qty
+        varchar status
+        date date
+    }
+    sale_items {
+        bigint id PK
+        bigint sale_id FK
+        varchar item_id FK
+        int qty
+        numeric price
+        numeric subtotal
+    }
+    sales {
+        bigint id PK
+        numeric total
+        timestamp date
+        varchar branch_id FK
+        varchar username FK
+        text status
+    }
+    ticket_images {
+        bigint id PK
+        varchar ticket_id FK
+        varchar file_path
+    }
+    ticket_parts {
+        bigint id PK
+        varchar ticket_id FK
+        varchar part_id FK
+        varchar name
+        int qty
+        numeric cost
+        numeric price
+    }
+    tickets {
+        varchar id PK
+        varchar status
+        varchar customer_id FK
+        varchar device_id FK
+        text symptom
+        date date
+        numeric labor_cost
+        varchar branch_id FK
+    }
+    user_disk_quotas {
+        varchar role_name PK
+        bigint max_bytes
+        bigint used_bytes
+        timestamp_with_time_zone updated_at
+    }
+    users {
+        int id PK
+        varchar username UK
+        varchar password_hash
+        varchar role
+        varchar branch_id FK
+    }
+    vendors {
+        varchar id PK
+        varchar name
+        varchar contact
+    }
+    warranties {
+        bigint id PK
+        varchar ticket_id FK
+        date start_date
+        date end_date
+        text notes
     }
 ```
 
@@ -188,7 +275,7 @@ sequenceDiagram
 | Rol de Base de Datos | Usuario Login | Privilegios Asignados | Cuota Máxima en Disco (`user_disk_quotas`) | Mecanismo de Control |
 | :--- | :--- | :--- | :---: | :--- |
 | `rol_dba` | `admin_sys` | `SUPERUSER`, control total de instancia, tablespaces, respaldos y auditoría. | Ilimitada | Control administrativo directo. |
-| `rol_tecnico` | `app_tecnico` | `SELECT` en catálogos; `INSERT, UPDATE` en `tickets`, `ticket_parts`, `ticket_status_history`; `UPDATE (stock)` en `inventory`. Sin permiso de `DELETE` ni acceso a `payments`. | **50 MB** (`52428800` bytes) | Trigger `trg_enforce_user_quota` aborta inserciones si el espacio atribuido supera `max_bytes`. |
-| `rol_recepcion` | `app_recepcion` | `SELECT, INSERT, UPDATE` en `customers`, `customer_devices`, `tickets`; `SELECT, INSERT` en `payments`. Sin permiso de `DELETE`. | **100 MB** (`104857600` bytes) | Trigger `trg_enforce_user_quota` activo sobre tablas de recepción y caja. |
+| `rol_tecnico` | `app_tecnico` | `SELECT` en catálogos (`branches`, `customers`, `customer_devices`, `vendors`, `knowledge_base`, `products`, `inventory`, `v_inventory`); `INSERT, UPDATE` en `tickets` y `ticket_parts`; `UPDATE (stock)` en `inventory`. Sin permiso de `DELETE` ni acceso a `payments`. | **50 MB** (`52428800` bytes) | Trigger `trg_enforce_user_quota` aborta inserciones si el espacio atribuido supera `max_bytes`. |
+| `rol_recepcion` | `app_recepcion` | `SELECT, INSERT, UPDATE` en `customers`, `customer_devices`, `tickets`; `SELECT, INSERT` en `payments`. Sin permiso de `DELETE`. | **100 MB** (`104857600` bytes) | Mismo trigger `trg_enforce_user_quota` (adjunto a `tickets` y `ticket_parts`); la cuota se descuenta por rol. |
 | `rol_auditor` | `app_auditor` | `SELECT` exclusivo sobre `audit_logs`, `pg_stat_statements` y vistas de catálogo (`default_transaction_read_only = on`). | **0 MB** (Solo lectura) | Bloqueo nativo de escritura a nivel de rol. |
 | `rol_replicacion` | `replicator` | `REPLICATION LOGIN` para streaming WAL hacia `fixit_pg_replica`. | N/A | Restringido por subred en `pg_hba.conf`. |

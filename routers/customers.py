@@ -13,7 +13,7 @@ async def list_customers(request: Request, user: dict = Depends(get_current_user
     c = db.cursor()
     c.execute("SELECT * FROM customers")
     customers_list = c.fetchall()
-    return templates.TemplateResponse("customers.html", {"request": request, "user": user, "customers": customers_list})
+    return templates.TemplateResponse(request, "customers.html", {"request": request, "user": user, "customers": customers_list})
 
 @router.post("/customers/new", response_class=RedirectResponse)
 async def add_customer(request: Request, name: str = Form(...), phone: str = Form(...), email: str = Form(""), address: str = Form(""), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -36,7 +36,7 @@ async def list_devices(request: Request, user: dict = Depends(get_current_user),
         WHERE d.branch_id = ?
     """, (user["branch_id"],))
     devices_list = c.fetchall()
-    return templates.TemplateResponse("devices.html", {"request": request, "user": user, "devices": devices_list})
+    return templates.TemplateResponse(request, "devices.html", {"request": request, "user": user, "devices": devices_list})
 
 @router.get("/customer/{customer_id}", response_class=HTMLResponse)
 async def view_customer(request: Request, customer_id: str, user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -67,7 +67,7 @@ async def view_customer(request: Request, customer_id: str, user: dict = Depends
     """, (customer_id,))
     ltv_data = c.fetchone()
     ltv = float(ltv_data["total_labor"] or 0) + float(ltv_data["total_parts"] or 0)
-    return templates.TemplateResponse("customer.html", {"request": request, "user": user, "customer": customer, "tickets": customer_tickets, "ltv": float(ltv)})
+    return templates.TemplateResponse(request, "customer.html", {"request": request, "user": user, "customer": customer, "tickets": customer_tickets, "ltv": float(ltv)})
 
 @router.get("/tracking/{ticket_id}", response_class=HTMLResponse)
 async def tracking_portal(request: Request, ticket_id: str, db: sqlite3.Connection = Depends(get_db_conn)):
@@ -97,7 +97,7 @@ async def tracking_portal(request: Request, ticket_id: str, db: sqlite3.Connecti
     total_paid = sum([float(p["amount"]) for p in payments])
     balance_due = max(0.0, total_amount - total_paid)
         
-    return templates.TemplateResponse("tracking.html", {
+    return templates.TemplateResponse(request, "tracking.html", {
         "request": request,
         "ticket": ticket,
         "warranty": warranty,

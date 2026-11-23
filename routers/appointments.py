@@ -15,14 +15,25 @@ async def appointments_view(request: Request, user: dict = Depends(get_current_u
     b_loaners = c.fetchall()
     c.execute("SELECT * FROM appointments WHERE branch_id = ? ORDER BY date, time", (user["branch_id"],))
     b_appointments = c.fetchall()
-    return templates.TemplateResponse("appointments.html", {"request": request, "user": user, "loaners": b_loaners, "appointments": b_appointments})
+    from datetime import date as date_cls
+    return templates.TemplateResponse(request, "appointments.html", {"request": request, "user": user, "loaners": b_loaners, "appointments": b_appointments, "today": date_cls.today()})
 
 
 @router.post("/appointments/new", response_class=RedirectResponse)
 async def create_appointment(request: Request, customer_name: str = Form(...), service: str = Form(...), date: str = Form(...), time: str = Form(...), user: dict = Depends(get_current_user), db: sqlite3.Connection = Depends(get_db_conn)):
+    from datetime import date as date_cls, time as time_cls
+    try:
+        appt_date = date_cls.fromisoformat(date)
+        appt_time = time_cls.fromisoformat(time)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Fecha u hora de la cita inválida.")
+    if appt_date < date_cls.today():
+        raise HTTPException(status_code=400, detail="No se pueden agendar citas en fechas pasadas.")
+    if not (time_cls(9, 0) <= appt_time <= time_cls(19, 0)):
+        raise HTTPException(status_code=400, detail="La cita debe estar dentro del horario laboral (09:00 a 19:00).")
     c = db.cursor()
     c.execute("INSERT INTO appointments (customer_name, service, date, time, status, branch_id) VALUES (?, ?, ?, ?, 'PENDIENTE', ?)",
-              (customer_name, service, date, time, user["branch_id"]))
+              (customer_name.strip(), service.strip(), appt_date, appt_time, user["branch_id"]))
     db.commit()
     return RedirectResponse(url="/appointments", status_code=303)
 

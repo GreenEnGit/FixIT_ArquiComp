@@ -1,10 +1,8 @@
-name: Suite SCB-1001 (CP-01 a CP-10)
+name: Suite SCB-1001 (CP-01 a CP-11)
 
-# NOTA: este workflow aprovisiona un cluster PostgreSQL real con Podman
-# rootless dentro del runner (no usa mocks). No se pudo ejecutar en la
-# infraestructura real de GitHub Actions al redactarlo (sin acceso a CI
-# desde el entorno donde se desarrollo); validar en el primer PR/push
-# antes de confiar en el resultado como gate definitivo.
+# Aprovisiona un cluster PostgreSQL real con Podman rootless dentro del
+# runner (sin mocks) y ejecuta la suite completa, incluida la prueba de la
+# aplicacion web (CP-11), que levanta uvicorn contra ese cluster.
 
 on:
   push:
@@ -46,7 +44,7 @@ jobs:
       - name: Levantar fixit_pg_replica (Streaming Replication)
         run: bash infra/scripts/setup_replication.sh
 
-      - name: Ejecutar suite CP-01 a CP-10
+      - name: Ejecutar suite CP-01 a CP-11
         run: pytest -v tests/test_dba_scb1001.py
 
       - name: Logs de los contenedores (si algo fallo)

@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse(request, "login.html", {"request": request, "error": None})
 
 @router.post("/login", response_class=HTMLResponse)
 async def login(request: Request, username: str = Form(...), password: str = Form(...), db: sqlite3.Connection = Depends(get_db_conn)):
@@ -28,7 +28,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
         response.set_cookie(key="session_token", value=token, httponly=True, samesite="lax")
         return response
     
-    return templates.TemplateResponse("login.html", {"request": request, "error": "Credenciales inválidas"})
+    return templates.TemplateResponse(request, "login.html", {"request": request, "error": "Credenciales inválidas"})
 
 @router.get("/logout")
 async def logout():

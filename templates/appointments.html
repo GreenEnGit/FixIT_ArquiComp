@@ -21,8 +21,9 @@
                     {% for appt in appointments %}
                     <li class="p-4 hover:bg-slate-50 flex items-center gap-4 {% if appt.status == 'COMPLETADO' %}opacity-50{% endif %}">
                         <div class="text-center font-mono font-bold text-slate-600 bg-slate-100 px-3 py-2 rounded-lg">
-                            <div class="text-[10px] uppercase leading-none mb-1">{{ appt.date }}</div>
-                            <div class="text-xs">{{ appt.time }}</div>
+                            {% set days = (appt.date - today).days %}
+                            <div class="text-[10px] uppercase leading-none mb-1">{% if days == 0 %}Hoy{% elif days == 1 %}Mañana{% elif days == -1 %}Ayer{% else %}{{ appt.date.strftime('%d/%m') }}{% endif %}</div>
+                            <div class="text-xs">{{ appt.time.strftime('%H:%M') }}</div>
                         </div>
                         <div>
                             <p class="font-bold text-slate-900 {% if appt.status == 'COMPLETADO' %}line-through{% endif %}">{{ appt.customer_name }}</p>

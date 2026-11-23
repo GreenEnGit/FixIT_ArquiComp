@@ -105,14 +105,14 @@ GRANT USAGE ON SCHEMA public TO rol_dba, rol_tecnico, rol_recepcion, rol_auditor
 
 -- rol_tecnico: catalogos de solo lectura + flujo de tickets/refacciones.
 -- Sin DELETE y sin acceso a payments ni audit_logs.
-GRANT SELECT ON branches, customers, customer_devices, vendors, knowledge_base, inventory
-    TO rol_tecnico;
+GRANT SELECT ON branches, customers, customer_devices, vendors, knowledge_base, products, inventory,
+    v_inventory TO rol_tecnico;
 GRANT INSERT, UPDATE ON tickets, ticket_parts TO rol_tecnico;
 GRANT UPDATE (stock) ON inventory TO rol_tecnico;
 
 -- rol_recepcion: atencion a clientes, equipos, tickets y cobro de pagos.
 -- Sin DELETE.
-GRANT SELECT ON branches, inventory TO rol_recepcion;
+GRANT SELECT ON branches, products, inventory, v_inventory TO rol_recepcion;
 GRANT SELECT, INSERT, UPDATE ON customers, customer_devices, tickets TO rol_recepcion;
 GRANT SELECT, INSERT ON payments TO rol_recepcion;
 
