@@ -1,0 +1,13 @@
+[Unit]
+Description=FixIT - PostgreSQL 16.4 replica (fixit_pg_replica)
+Requires=container-fixit_pg_master.service
+After=container-fixit_pg_master.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/podman start fixit_pg_replica
+ExecStop=/usr/bin/podman stop -t 10 fixit_pg_replica
+
+[Install]
+WantedBy=default.target

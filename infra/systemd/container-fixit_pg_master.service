@@ -1,0 +1,13 @@
+[Unit]
+Description=FixIT - PostgreSQL 16.4 maestro (fixit_pg_master)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/podman start fixit_pg_master
+ExecStop=/usr/bin/podman stop -t 10 fixit_pg_master
+
+[Install]
+WantedBy=default.target

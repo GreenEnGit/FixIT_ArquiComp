@@ -5,6 +5,10 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-005571?style=for-the-badge&logo=fastapi)
 ![Python](https://img.shields.io/badge/Python-3.12.3-3776AB?style=for-the-badge&logo=python&logoColor=white)
 
+> [!WARNING]
+> **Proyecto exclusivamente académico.** FixIT se desarrolló como proyecto integrador de la asignatura **Administración de Base de Datos (SCB-1001)** del Tecnológico Nacional de México, con fines de aprendizaje y evaluación.
+> **No debe usarse, bajo ningún contexto, en entornos de producción reales** ni para gestionar talleres, clientes, pagos o datos personales reales. Las credenciales de laboratorio, la configuración de red, los datos de ejemplo y las decisiones de seguridad están pensados únicamente para una máquina virtual de práctica. Se distribuye "tal cual", sin garantía de ningún tipo; los autores no se hacen responsables de su uso fuera del ámbito académico.
+
 **FixIT** es un sistema de gestión integral para talleres de reparación de hardware (tickets, inventario, punto de venta, clientes). Este repositorio documenta su evolución desde una arquitectura monolítica sobre **SQLite 3.45.1** hacia un **clúster transaccional distribuido en PostgreSQL 16.4**, contenedorizado con **Podman 4.9.3**, cubriendo el 100% del temario oficial **Administración de Base de Datos (SCB-1001)** del TecNM.
 
 Toda operación de DBA descrita en este repositorio (instalación, tablespaces, roles y cuotas, modos de operación, índices, replicación, respaldo/recuperación PITR, migración, auditoría y monitoreo) se verificó con comandos reales ejecutados contra el clúster y quedó documentada con evidencia visual automatizada.
@@ -188,6 +192,28 @@ Clona `fixit_pg_master` hacia `fixit_pg_replica` (puerto `5433`) mediante `pg_ba
 
 ## 7. Ejecución de la aplicación FastAPI
 
+### Opción A — Arranque automático en `http://fixittester.com` (recomendada)
+
+```bash
+bash infra/scripts/install_autostart.sh
+```
+
+El script (pide `sudo` una sola vez):
+
+1. Instala tres servicios systemd de usuario desde `infra/systemd/`: `container-fixit_pg_master`, `container-fixit_pg_replica` (si existe la réplica) y `fixit-web` (uvicorn, espera a que PostgreSQL acepte conexiones).
+2. Activa *linger* para que arranquen al encender la VM, sin necesidad de iniciar sesión.
+3. Agrega `127.0.0.1 fixittester.com` a `/etc/hosts` y permite escuchar en el puerto 80 sin root (`/etc/sysctl.d/99-fixit-port80.conf`).
+
+Después basta con abrir **http://fixittester.com** en el navegador de la VM. El nombre solo resuelve dentro de esta máquina; para entrar desde otro equipo, agrega en su archivo hosts la IP de la VM con ese nombre.
+
+```bash
+systemctl --user status fixit-web container-fixit_pg_master container-fixit_pg_replica
+systemctl --user restart fixit-web      # tras modificar el código de la app
+journalctl --user -u fixit-web -f       # logs de la aplicación
+```
+
+### Opción B — Ejecución manual
+
 ```bash
 source .venv/bin/activate
 uvicorn main:app --port 8000
@@ -201,7 +227,8 @@ La aplicación queda disponible en `http://localhost:8000`. También existe un m
 
 | Servicio | URL / Puerto |
 | :--- | :--- |
-| Aplicación FixIT (FastAPI) | http://localhost:8000 |
+| Aplicación FixIT (arranque automático) | http://fixittester.com |
+| Aplicación FixIT (ejecución manual) | http://localhost:8000 |
 | PostgreSQL — maestro (`fixit_pg_master`) | `localhost:5432` |
 | PostgreSQL — réplica (`fixit_pg_replica`, solo lectura) | `localhost:5433` |
 
@@ -300,7 +327,7 @@ FixIT_ArquiComp/
 - Este repositorio es **público**. Antes de este cambio, 5 contraseñas de laboratorio estuvieron publicadas en texto plano durante un tiempo en el historial de Git de la rama `feat/dba-postgres-scb1001`; se trataron como comprometidas y **no se reutilizó ningún valor anterior** al migrar al esquema de variables de entorno. Si vas a desplegar una copia de este proyecto, genera tus propias contraseñas con `init_env.sh` — no confíes en ningún valor que hayas visto en un commit antiguo de este repositorio.
 - `infra/config/pg_hba.conf` autoriza conexiones desde `0.0.0.0/0` con `scram-sha-256` porque el CIDR de la red rootless de Podman puede variar entre entornos; la seguridad real recae en las contraseñas y los privilegios RBAC. **Restringe este archivo al CIDR real de tu red antes de exponer el servicio fuera de un laboratorio controlado.**
 - `SECRET_KEY` debe generarse de forma única por despliegue; el valor por defecto que usa la app si se deja vacío **no es seguro para producción**.
-- Los usuarios de la **aplicación web** (`admin`/`admin123`, `tecnico_norte`/`tec123`) son cuentas de demostración del seed original de `taller_prototipo.db`, independientes de las credenciales de PostgreSQL. Cámbialas desde `/profile` antes de cualquier uso real.
+- Los usuarios de la **aplicación web** (`admin`/`admin123`, `tecnico_norte`/`tec123`) son cuentas de demostración del seed original de `taller_prototipo.db`, independientes de las credenciales de PostgreSQL. Existen solo para el laboratorio académico; este proyecto no debe usarse en producción.
 
 ## Manuales del proyecto
 
@@ -351,3 +378,9 @@ FixIT_ArquiComp/
 **Conclusión: Sí, después de estos cambios** (ya aplicados en este commit) — con la única reserva honesta de que el workflow de CI debe demostrar que corre correctamente en GitHub Actions antes de tratarlo como gate de confianza total.
 
 **Conclusión: Sí, después de estos cambios** — específicamente: (1) resolver la generación de `taller_prototipo.db` para un clon limpio, (2) confirmar con una segunda corrida completa de pytest que `test_cp04` no vuelve a fallar, y (3) abrir el Pull Request en vez de fusionar directamente.
+
+---
+
+## Aviso de uso
+
+Proyecto académico desarrollado para la asignatura **Administración de Base de Datos (SCB-1001)** — TecNM. Su único propósito es demostrar los temas del programa en un entorno de laboratorio. **No está destinado a producción** y no debe desplegarse para operar negocios, procesar pagos ni almacenar datos personales reales.

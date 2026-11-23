@@ -1,0 +1,15 @@
+[Unit]
+Description=FixIT - aplicacion web (uvicorn) en http://fixittester.com
+Requires=container-fixit_pg_master.service
+After=container-fixit_pg_master.service
+
+[Service]
+WorkingDirectory=@PROJECT_DIR@
+# Espera a que PostgreSQL acepte conexiones antes de levantar la app
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 60); do /usr/bin/podman exec fixit_pg_master pg_isready -q && exit 0; sleep 1; done; exit 1'
+ExecStart=@PROJECT_DIR@/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 80
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
