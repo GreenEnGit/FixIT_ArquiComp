@@ -114,7 +114,11 @@ def _d(days_ago: int) -> str:
 
 
 def _dt(days_ago: int, hour: int, minute: int = 0) -> str:
-    return (NOW - timedelta(days=days_ago)).replace(hour=hour, minute=minute, second=0).strftime("%Y-%m-%d %H:%M:%S")
+    """Fecha/hora relativa a hoy; nunca posterior al momento actual (sin eventos en el futuro)."""
+    when = (NOW - timedelta(days=days_ago)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if when > NOW:
+        when = NOW.replace(second=0, microsecond=0) - timedelta(minutes=5 + hour)
+    return when.strftime("%Y-%m-%d %H:%M:%S")
 
 
 IMG = "/static/img/products/{}.webp"
