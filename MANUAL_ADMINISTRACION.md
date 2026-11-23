@@ -21,7 +21,7 @@ El trigger `trg_enforce_user_quota()` audita el espacio atribuido a cada rol en 
 `infra/scripts/ops_modes.sh` controla la transición entre modos:
 
 - **recovery**: crea `standby.signal` y reinicia el contenedor para forzar un `pg_is_in_recovery() = true` sostenido (no hay un segundo nodo primario aún en este punto del ciclo; se usa el propio nodo como standby de sí mismo).
-- **normal**: promueve con `SELECT pg_promote();`, volviendo a modo lectura-escritura sin downtime de reinicio.
+- **normal**: espera hasta 90 s a que la instancia acepte conexiones, promueve con `SELECT pg_promote(true, 120);` (espera a que termine la promoción) y verifica que `pg_is_in_recovery()` sea `false`; si no lo es, el script termina con error.
 
 ![Transición entre modos alta/recovery/normal](evidencias/capturas/terminal/P04_modos_operacion_recovery.png)
 
@@ -40,3 +40,28 @@ El trigger `trg_enforce_user_quota()` audita el espacio atribuido a cada rol en 
 | `logging_collector` | `on` | Archivos log en `pg_log/` (csvlog) |
 | `shared_preload_libraries` | `pg_stat_statements` | Monitoreo de consultas (Unidad 6) |
 | `max_wal_senders` / `max_replication_slots` | 10 / 10 | Soporte de réplicas físicas |
+
+## 6. Operación diaria en la aplicación
+
+**Punto de venta:** cada clic sobre un producto agrega una unidad; las cantidades se ajustan con `-`/`+` y el cobro descuenta existencias solo de la sucursal activa.
+
+![Punto de venta con fotos](evidencias/capturas/ui/UI_05_punto_de_venta_fotos.png)
+
+**Inventario multi-sucursal:** el detalle de cada producto muestra sus existencias y precio en cada sucursal.
+
+![Detalle de producto con existencias por sucursal](evidencias/capturas/ui/UI_06_detalle_producto_existencias.png)
+
+**Recepción de equipos:** el PIN de desbloqueo se guarda cifrado y en el ticket solo se muestra al pulsar *Mostrar*.
+
+![Recepción con PIN cifrado](evidencias/capturas/ui/UI_07_recepcion_pin_cifrado.png)
+
+![Ticket con PIN revelado bajo demanda](evidencias/capturas/ui/UI_08_ticket_pin_desbloqueo.png)
+
+**Citas y préstamos:** la agenda usa tipos `DATE`/`TIME`; no admite fechas pasadas ni horas fuera del horario laboral (09:00 a 19:00).
+
+![Agenda de citas](evidencias/capturas/ui/UI_09_citas_agenda.png)
+
+La interfaz se adapta a pantallas de celular:
+
+![Vista móvil](evidencias/capturas/ui/UI_11_vista_movil.png)
+

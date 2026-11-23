@@ -36,7 +36,7 @@ Una escritura en el maestro es legible en la réplica en menos de 1 segundo; la 
 
 ## 6. Migración real SQLite → PostgreSQL
 
-`infra/scripts/migrate_sqlite_to_pg.py --verify` migra las 19 tablas de `taller_prototipo.db` en orden de dependencia de FK, preservando los IDs originales (`OVERRIDING SYSTEM VALUE`) y resincronizando las secuencias `IDENTITY`.
+`infra/scripts/migrate_sqlite_to_pg.py --verify` migra las 20 tablas de `taller_prototipo.db` (cifrando con pgcrypto el PIN de los equipos, que el sistema legado guardaba en texto plano) en orden de dependencia de FK, preservando los IDs originales (`OVERRIDING SYSTEM VALUE`) y resincronizando las secuencias `IDENTITY`.
 
 ![Migración SQLite → PostgreSQL con verificación](evidencias/capturas/terminal/P09_migracion_sqlite_postgres.png)
 

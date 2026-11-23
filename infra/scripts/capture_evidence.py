@@ -33,6 +33,13 @@ UI_DIR = EVID_DIR / "capturas" / "ui"
 for d in (DIAG_DIR, TERM_DIR, UI_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
+UI_NAMES = [
+    "UI_01_login_y_dashboard", "UI_02_tickets_migrados", "UI_03_inventario_refacciones",
+    "UI_04_vista_auditoria_pagos", "UI_05_punto_de_venta_fotos", "UI_06_detalle_producto_existencias",
+    "UI_07_recepcion_pin_cifrado", "UI_08_ticket_pin_desbloqueo", "UI_09_citas_agenda",
+    "UI_10_modal_reversion_venta", "UI_11_vista_movil",
+]
+
 PSQL = 'podman exec --user postgres fixit_pg_master psql -U postgres -d fixit_db'
 PSQL_REPLICA = 'podman exec --user postgres fixit_pg_replica psql -U postgres -d fixit_db'
 
@@ -330,6 +337,57 @@ def render_terminal_captures(page):
     ])
 
 
+def render_mejoras_captures(page):
+    """P13 — Evidencia de las mejoras del esquema v2 y de la seguridad de la app."""
+    capture_terminal(page, "P13_catalogo_products_inventory",
+        "Practica 13 — Catalogo maestro (products) y existencias por sucursal (inventory, 3FN)", [
+        f'{PSQL} -c "\\d products"',
+        f'{PSQL} -c "\\d inventory"',
+        f'{PSQL} -c "SELECT id, branch_id, name, stock, price FROM v_inventory WHERE id IN '
+        f'(SELECT id FROM inventory GROUP BY id HAVING count(*) > 1) ORDER BY id, branch_id LIMIT 8;"',
+    ])
+    key = dotenv_values(PROJECT_DIR / ".env").get("DEVICE_DATA_KEY", "")
+    decrypt_sql = ("SELECT d.id, c.name AS cliente, pgp_sym_decrypt(d.password, :'clave') AS pin "
+                   "FROM customer_devices d JOIN customers c ON c.id = d.customer_id "
+                   "WHERE d.password IS NOT NULL ORDER BY d.id LIMIT 4;")
+    capture_terminal(page, "P13_cifrado_pgcrypto",
+        "Practica 13 — Datos sensibles cifrados con pgcrypto (customer_devices.password)", [
+        f'{PSQL} -c "SELECT id, pg_typeof(password) AS tipo, left(encode(password, \'hex\'), 40) AS contenido_en_disco '
+        f'FROM customer_devices WHERE password IS NOT NULL ORDER BY id LIMIT 4;"',
+        (f'echo "{decrypt_sql}" | {PSQL.replace("podman exec", "podman exec -i")} -v clave="$DEVICE_DATA_KEY"',
+         f'echo "{decrypt_sql}" | {PSQL.replace("podman exec", "podman exec -i")} -v clave="{key}"'),
+    ])
+    capture_terminal(page, "P13_citas_tipos_nativos",
+        "Practica 13 — Citas con tipos nativos DATE/TIME", [
+        f'{PSQL} -c "SELECT customer_name, date, time, pg_typeof(date) AS t_fecha, pg_typeof(time) AS t_hora '
+        f'FROM appointments ORDER BY date, time LIMIT 5;"',
+        f'{PSQL} -c "INSERT INTO appointments (customer_name, service, date, time, status, branch_id) '
+        f'VALUES (\'Prueba\', \'x\', \'2026-02-30\', \'10:00\', \'PENDIENTE\', \'NORTE\');"',
+    ])
+    base = "http://fixittester.com"
+    jar = "/tmp/fixit_evidencia_cookies"
+    fake = "/tmp/fixit_evidencia_falsa.jpg"
+    capture_terminal(page, "P13_seguridad_web_csrf_subidas",
+        "Practica 13 — Seguridad web: CSRF por verificacion de origen y subidas validadas", [
+        f'curl -s -c {jar} -d "username=admin&password=admin123" -o /dev/null -w "login: HTTP %{{http_code}}\\n" {base}/login',
+        f'curl -s -b {jar} -X POST -H "Origin: http://sitio-malicioso.example" -o /dev/null '
+        f'-w "POST desde otro sitio: HTTP %{{http_code}} (bloqueado)\\n" {base}/set_branch/NORTE',
+        f'curl -s -b {jar} -X POST -H "Origin: {base}" -o /dev/null '
+        f'-w "POST desde FixIT: HTTP %{{http_code}} (permitido)\\n" {base}/set_branch/NORTE',
+        f"printf '<?php system($_GET[c]); ?>' > {fake} && curl -s -b {jar} -H \"Origin: {base}\" "
+        f'-F name=x -F brand=x -F category=ACCESORIO -F cost=1 -F price=1 -F "image=@{fake};type=image/jpeg" '
+        f'-o /dev/null -w "script disfrazado de .jpg: HTTP %{{http_code}} (rechazado)\\n" {base}/inventory/item/CAB-USB-C/edit',
+        f'curl -s -b {jar} "{base}/inventory/api/search?q=ssd"',
+    ])
+    run(f"rm -f {jar} {fake}")
+    output = run(f"{PROJECT_DIR}/.venv/bin/pytest -v tests/test_dba_scb1001.py -k cp11 2>&1", timeout=600)
+    page.set_content(build_terminal_html(
+        "Practica 13 — CP-11: aplicacion web de punta a punta", [("pytest -v tests/test_dba_scb1001.py -k cp11", output)]))
+    path = TERM_DIR / "P13_pytest_cp11_aplicacion_web.png"
+    page.locator(".window").screenshot(path=str(path))
+    print(f"[OK] terminal -> {path.relative_to(PROJECT_DIR)}")
+
+
 def render_pytest_capture(page):
     output = run(f"{PROJECT_DIR}/.venv/bin/pytest -v tests/test_dba_scb1001.py 2>&1", timeout=600)
     page.set_content(build_terminal_html(
@@ -391,7 +449,63 @@ def render_ui_captures(browser):
         page.screenshot(path=str(UI_DIR / "UI_04_vista_auditoria_pagos.png"), full_page=True)
         print(f"[OK] ui -> {(UI_DIR / 'UI_04_vista_auditoria_pagos.png').relative_to(PROJECT_DIR)}")
 
+        def shot(name, full_page=True):
+            page.screenshot(path=str(UI_DIR / f"{name}.png"), full_page=full_page)
+            print(f"[OK] ui -> {(UI_DIR / f'{name}.png').relative_to(PROJECT_DIR)}")
+
+        page.add_init_script("window.print = () => {}")  # los recibos se imprimen solos al cargar
+        page.goto("http://127.0.0.1:8000/pos")
+        page.wait_for_load_state("networkidle")
+        for name in ("Memoria RAM 8 GB DDR4", "Teclado Mecánico RGB", "Cable USB-C a USB-C"):
+            page.locator(".pos-item", has_text=name).first.click()
+        page.evaluate("document.getElementById('posGrid').parentElement.scrollTop = 0; window.scrollTo(0, 0)")
+        shot("UI_05_punto_de_venta_fotos", full_page=False)
+
+        page.goto("http://127.0.0.1:8000/inventory/component/RAM-8G-D4")
+        page.wait_for_load_state("networkidle")
+        shot("UI_06_detalle_producto_existencias")
+
+        page.goto("http://127.0.0.1:8000/intake")
+        page.wait_for_load_state("networkidle")
+        page.fill("input[name=nombre]", "Gabriela Luna")
+        page.fill("input[name=telefono]", "55 2468 1357")
+        page.fill("[name=marca]", "Lenovo ThinkPad E14")
+        page.fill("input[name=serial_number]", "PF4XYZ12")
+        page.fill("input[name=device_password]", "PIN 2580")
+        page.fill("textarea[name=estado_fisico]", "Esquina inferior golpeada, teclado completo.")
+        page.fill("[name=sintoma]", "Se reinicia al abrir varias pestañas del navegador.")
+        shot("UI_07_recepcion_pin_cifrado")
+
+        page.goto("http://127.0.0.1:8000/ticket/REP-001021")
+        page.wait_for_load_state("networkidle")
+        page.locator("button", has_text="Mostrar").first.click()
+        shot("UI_08_ticket_pin_desbloqueo")
+
+        page.goto("http://127.0.0.1:8000/appointments")
+        page.wait_for_load_state("networkidle")
+        shot("UI_09_citas_agenda")
+
+        page.goto("http://127.0.0.1:8000/pos/receipt/1")
+        page.wait_for_load_state("networkidle")
+        page.locator("button", has_text="Revertir").click()
+        page.locator("dialog[open] textarea").fill("El cliente devolvió el producto sin abrir.")
+        shot("UI_10_modal_reversion_venta", full_page=False)
+        page.locator("dialog[open] button", has_text="Cancelar").click()
+
         context.close()
+
+        mobile = browser.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2)
+        mpage = mobile.new_page()
+        mpage.goto("http://127.0.0.1:8000/login")
+        mpage.fill('input[name="username"]', "admin")
+        mpage.fill('input[name="password"]', "admin123")
+        mpage.click('button[type="submit"]')
+        mpage.wait_for_load_state("networkidle")
+        mpage.goto("http://127.0.0.1:8000/inventory/sales")
+        mpage.wait_for_load_state("networkidle")
+        mpage.screenshot(path=str(UI_DIR / "UI_11_vista_movil.png"))
+        print(f"[OK] ui -> {(UI_DIR / 'UI_11_vista_movil.png').relative_to(PROJECT_DIR)}")
+        mobile.close()
     finally:
         proc.terminate()
         try:
@@ -407,8 +521,7 @@ def render_ui_captures(browser):
 def verify():
     expected = (
         [DIAG_DIR / f"{n}.png" for n in DIAGRAM_NAMES]
-        + [UI_DIR / f"UI_0{i}_{s}.png" for i, s in enumerate(
-            ["login_y_dashboard", "tickets_migrados", "inventario_refacciones", "vista_auditoria_pagos"], 1)]
+        + [UI_DIR / f"{n}.png" for n in UI_NAMES]
     )
     expected += list(TERM_DIR.glob("P*.png"))
 
@@ -439,6 +552,7 @@ if __name__ == "__main__":
     parser.add_argument("--diagrams", action="store_true")
     parser.add_argument("--terminal", action="store_true")
     parser.add_argument("--ui", action="store_true")
+    parser.add_argument("--mejoras", action="store_true", help="Capturas P13 (esquema v2 y seguridad web)")
     parser.add_argument("--pytest-capture", action="store_true",
                          help="Captura P12 (debe ejecutarse despues de escribir tests/test_dba_scb1001.py)")
     parser.add_argument("--verify", action="store_true")
@@ -458,6 +572,12 @@ if __name__ == "__main__":
             context = browser.new_context(device_scale_factor=2)
             page = context.new_page()
             render_terminal_captures(page)
+            context.close()
+
+        if do_all or args.mejoras:
+            context = browser.new_context(device_scale_factor=2)
+            page = context.new_page()
+            render_mejoras_captures(page)
             context.close()
 
         if do_all or args.ui:

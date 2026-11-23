@@ -303,8 +303,8 @@ def test_cp10_evidencia_visual_completa():
     ui = list((EVID_DIR / "capturas" / "ui").glob("UI_*.png"))
 
     assert len(diagramas) == 4, f"se esperaban 4 diagramas, hay {len(diagramas)}"
-    assert len(terminal) >= 24, f"se esperaban >=24 capturas de terminal, hay {len(terminal)}"
-    assert len(ui) == 4, f"se esperaban 4 capturas de UI, hay {len(ui)}"
+    assert len(terminal) >= 30, f"se esperaban >=30 capturas de terminal (P01-P13), hay {len(terminal)}"
+    assert len(ui) == 11, f"se esperaban 11 capturas de UI, hay {len(ui)}"
 
     for path in diagramas + terminal + ui:
         data = path.read_bytes()

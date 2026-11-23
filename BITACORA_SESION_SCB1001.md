@@ -67,3 +67,12 @@ El usuario reportó `500 Internal Server Error` al vender un artículo por POS y
 - Suite `pytest -v tests/test_dba_scb1001.py`: 10/10.
 - UI/UX rediseñada en las 25 plantillas sobre Flowbite + Lucide + ApexCharts + Alpine.js, 100% offline (ver T-13).
 - Pendiente para una futura sesión: rotar las credenciales de laboratorio antes de cualquier uso real, evaluar *connection pooling* (`psycopg_pool`) y automatizar `backup_job.sh` por cron/systemd timer.
+
+## Etapa posterior — Modelo v2, seguridad y evidencia ampliada
+
+- Esquema v2: catálogo `products` (ts_catalogos) separado de `inventory` (existencias por sucursal, PK `id` + `branch_id`) y vista `v_inventory`; citas con `DATE`/`TIME`; `customer_devices.password` cifrada con pgcrypto. Script de actualización en `src/sql/upgrades/` e instalación nueva validada en un contenedor limpio.
+- Seguridad: subidas de imágenes validadas y recodificadas (antes se guardaban con la extensión enviada), defensa CSRF por verificación de origen, `SECRET_KEY` y `DEVICE_DATA_KEY` aleatorias, escrituras de stock filtradas por sucursal y `SELECT ... FOR UPDATE` al agregar refacciones.
+- Aplicación: FastAPI 0.115.0 / Uvicorn 0.31.0 / Jinja2 3.1.4, dashboard con agregados SQL, POS sin `prompt()`, Tailwind compilado, catálogo de 33 productos con foto.
+- Pruebas: nuevo caso CP-11 (aplicación web); suite de 17 pruebas en verde localmente y en GitHub Actions. CP-04 siempre restaura el modo normal.
+- Evidencia: 45 imágenes (4 diagramas, 30 capturas de terminal P01–P13, 11 de interfaz UI_01–UI_11); D02/D03 generados desde el catálogo real.
+

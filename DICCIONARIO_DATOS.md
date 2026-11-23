@@ -8,7 +8,7 @@
 
 | Tablespace | Contenido | Ruta física (contenedor) |
 | :--- | :--- | :--- |
-| `ts_catalogos` | `branches`, `users`, `customers`, `vendors`, `knowledge_base` | `/var/lib/postgresql/tablespaces/ts_catalogos` |
+| `ts_catalogos` | `branches`, `users`, `customers`, `vendors`, `knowledge_base`, `products` | `/var/lib/postgresql/tablespaces/ts_catalogos` |
 | `ts_transaccional` | `inventory`, `tickets`, `ticket_parts`, `payments`, `warranties`, `purchase_orders`, `customer_devices`, `loaners`, `appointments`, `activities`, `ticket_images`, `sales`, `sale_items` | `/var/lib/postgresql/tablespaces/ts_transaccional` |
 | `ts_auditoria` | `audit_logs`, `user_disk_quotas` | `/var/lib/postgresql/tablespaces/ts_auditoria` |
 | `ts_indices` | Todos los índices B-Tree (PK, UNIQUE y secundarios) | `/var/lib/postgresql/tablespaces/ts_indices` |
@@ -17,22 +17,49 @@
 
 ![Catálogo de tablas por tablespace](evidencias/capturas/terminal/P02_objetos_por_tablespace.png)
 
-## 2. Modelo relacional (19 tablas, normalizado 3FN)
+## 2. Modelo relacional (21 tablas, normalizado 3FN)
 
 ![Modelo relacional 3FN](evidencias/diagramas/D03_modelo_relacional_3fn.png)
 
-El esquema completo con tipos, PK/FK y restricciones está definido en [`src/sql/02_schema.sql`](src/sql/02_schema.sql), migrado 1:1 desde el `database.py` original de SQLite. Tablas clave:
+El esquema completo con tipos, PK/FK y restricciones está definido en [`src/sql/02_schema.sql`](src/sql/02_schema.sql). El diagrama D03 se genera desde el catálogo real de PostgreSQL (`infra/scripts/generate_schema_diagrams.py`). Tablas clave:
 
 | Tabla | PK | FK principales | Notas de tipo |
 | :--- | :--- | :--- | :--- |
 | `branches` | `id` VARCHAR(20) | — | `tax_rate` NUMERIC(5,4) |
 | `users` | `id` IDENTITY | `branch_id` → `branches` | `username` UNIQUE |
 | `customers` | `id` VARCHAR(20) | — | |
-| `inventory` | `id` VARCHAR(30) | `branch_id` → `branches` | `specs` JSONB, `stock` CHECK ≥ 0 |
+| `products` | `id` VARCHAR(30) (SKU) | — | Catálogo maestro: `name`, `brand`, `category`, `specs` JSONB, `image_path` |
+| `inventory` | (`id`, `branch_id`) | `id` → `products`, `branch_id` → `branches` | Existencias por sucursal: `stock` CHECK ≥ 0, `cost` y `price` propios de cada sucursal |
+| `customer_devices` | `id` VARCHAR(30) | `customer_id`, `branch_id` | `password` BYTEA cifrada con `pgp_sym_encrypt` (pgcrypto) |
+| `appointments` | `id` IDENTITY | `branch_id` → `branches` | `date` DATE, `time` TIME (validadas también en la app) |
 | `tickets` | `id` VARCHAR(20) | `customer_id`, `device_id`, `branch_id` | `date` DATE |
 | `payments` | `id` IDENTITY | `ticket_id` → `tickets` | `amount` CHECK > 0 |
 | `audit_logs` | `id` IDENTITY | `branch_id` → `branches` | `old_data`/`new_data` JSONB (T-10) |
 | `user_disk_quotas` | `role_name` VARCHAR(50) | — | `max_bytes`/`used_bytes` BIGINT |
+
+### 2.1 Catálogo maestro y existencias por sucursal (3FN)
+
+Un producto se describe una sola vez en `products` y cada sucursal guarda en `inventory` sus propias existencias, costo y precio. La vista `v_inventory` reúne ambos para las consultas de la aplicación, conservando la forma de la tabla original:
+
+```sql
+CREATE VIEW v_inventory AS
+SELECT i.id, p.name, p.brand, p.category, p.specs, i.stock, i.cost, i.price, i.branch_id, p.image_path
+FROM inventory i JOIN products p ON p.id = i.id;
+```
+
+![Catálogo products e inventory por sucursal](evidencias/capturas/terminal/P13_catalogo_products_inventory.png)
+
+### 2.2 Datos sensibles cifrados con pgcrypto
+
+El PIN o la contraseña de desbloqueo que el cliente deja con su equipo se guarda con `pgp_sym_encrypt(texto, clave)`; la clave (`DEVICE_DATA_KEY`) vive solo en el `.env` de la aplicación, de modo que los respaldos, la réplica y cualquier consulta sin la clave solo ven bytes. La migración desde SQLite cifra el dato al cargarlo.
+
+![Cifrado con pgcrypto](evidencias/capturas/terminal/P13_cifrado_pgcrypto.png)
+
+### 2.3 Tipos nativos de fecha y hora
+
+Todas las fechas y horas usan tipos nativos (`DATE`, `TIME`, `TIMESTAMP`); el propio SGBD rechaza valores imposibles:
+
+![Citas con tipos DATE y TIME](evidencias/capturas/terminal/P13_citas_tipos_nativos.png)
 
 ## 3. Roles RBAC
 
